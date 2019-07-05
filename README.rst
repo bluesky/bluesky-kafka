@@ -17,4 +17,4 @@ Kafka integration for bluesky.
 Features
 --------
 
-* TODO
+* A Kafka callback for bluesky.
