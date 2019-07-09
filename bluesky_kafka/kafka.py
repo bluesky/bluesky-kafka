@@ -3,7 +3,7 @@ import pickle
 
 from confluent_kafka import Consumer, Producer
 
-from ..run_engine import Dispatcher, DocumentNames
+from bluesky.run_engine import Dispatcher, DocumentNames
 
 
 def delivery_report(err, msg):
