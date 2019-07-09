@@ -18,3 +18,20 @@ Features
 --------
 
 * A Kafka callback for bluesky.
+
+Test
+----
+
+Start a Kafka server:
+
+::
+
+  $ cd bluesky-kafka/scripts
+  $ sudo docker-compose -f kafka-docker-compose.yml up
+
+Run tests:
+
+::
+
+  $ cd bluesky-kafka
+  $ pytest
