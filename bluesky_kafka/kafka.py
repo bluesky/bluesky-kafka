@@ -52,7 +52,7 @@ class Publisher:
                                   self._serializer((name, doc)),
                                   callback=delivery_report)
             self.producer.poll(0)
-        except BufferError as be:
+        except BufferError:
             # poll(...) blocks until there is space on the queue
             self.producer.poll(10)
             # repeat produce(...) now that some time has passed
@@ -123,7 +123,7 @@ class RemoteDispatcher(Dispatcher):
                                "instance with {}".format(repr(self)))
         try:
             self._poll()
-        except:
+        except Exception:
             self.stop()
             raise
 
