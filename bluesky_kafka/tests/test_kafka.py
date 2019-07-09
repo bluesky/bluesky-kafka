@@ -2,7 +2,6 @@ import multiprocessing
 import pprint
 import time
 
-import numpy as np
 import pytest
 
 from confluent_kafka import Consumer, KafkaException
@@ -60,6 +59,7 @@ def test_kafka(RE, hw):
     time.sleep(10)  # As above, give this plenty of time to start.
 
     local_accumulator = []
+
     def local_cb(name, doc):
         print('local_cb: {}'.format(name))
         local_accumulator.append((name, doc))
@@ -69,7 +69,7 @@ def test_kafka(RE, hw):
     #    assert remote_accumulator == local_accumulator
     #    ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
 
-    #md = {'stuff': {'nested': np.array([1, 2, 3])},
+    # md = {'stuff': {'nested': np.array([1, 2, 3])},
     #     'scalar_stuff': np.float64(3),
     #     'array_stuff': np.ones((3, 3))}
     md = {}
