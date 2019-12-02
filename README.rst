@@ -12,7 +12,6 @@ bluesky-kafka
 Kafka integration for bluesky.
 
 * Free software: 3-clause BSD license
-* Documentation: (COMING SOON!) https://blueskyproject.io/bluesky-kafka.
 
 Features
 --------
