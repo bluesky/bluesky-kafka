@@ -2,8 +2,8 @@
 bluesky-kafka
 ===============================
 
-.. image:: https://img.shields.io/travis/jklynch/bluesky-kafka.svg
-        :target: https://travis-ci.org/jklynch/bluesky-kafka
+.. image:: https://img.shields.io/travis/bluesky/bluesky-kafka.svg
+        :target: https://travis-ci.org/bluesky/bluesky-kafka
 
 .. image:: https://img.shields.io/pypi/v/bluesky-kafka.svg
         :target: https://pypi.python.org/pypi/bluesky-kafka
@@ -12,7 +12,6 @@ bluesky-kafka
 Kafka integration for bluesky.
 
 * Free software: 3-clause BSD license
-* Documentation: (COMING SOON!) https://jklynch.github.io/bluesky-kafka.
 
 Features
 --------
@@ -21,6 +20,8 @@ Features
 
 Test
 ----
+
+Install docker and docker-compose.
 
 Start a Kafka server:
 
