@@ -1,6 +1,5 @@
-import copy
+import logging
 import pickle
-import sys
 
 from confluent_kafka import Consumer, Producer
 
@@ -57,11 +56,7 @@ class Publisher:
     """
 
     def __init__(
-        self,
-        topic,
-        bootstrap_servers,
-        producer_config=None,
-        serializer=pickle.dumps,
+        self, topic, bootstrap_servers, producer_config=None, serializer=pickle.dumps,
     ):
         self.topic = topic
         self.producer_config = {
@@ -100,7 +95,7 @@ class Publisher:
             topic=self.topic,
             key=key,
             value=self._serializer((name, doc)),
-            callback=delivery_report
+            callback=delivery_report,
         )
 
     def flush(self):
@@ -128,19 +123,35 @@ class RemoteDispatcher(Dispatcher):
     >>> d.start()  # runs until interrupted
     """
 
-    def __init__(self, topics, bootstrap_servers, *, group_id=None, auto_offset_reset="latest", consumer_config=None, deserializer=pickle.loads):
+    def __init__(
+        self,
+        topics,
+        bootstrap_servers,
+        *,
+        group_id=None,
+        auto_offset_reset="latest",
+        consumer_config=None,
+        deserializer=pickle.loads,
+    ):
+        logger = logging.getLogger(name=self.__class__.__name__)
+
         self._deserializer = deserializer
 
         if consumer_config is None:
             consumer_config = {}
-        consumer_config.update({
-            "bootstrap_servers": bootstrap_servers,
-            "auto.offset.reset": auto_offset_reset,
-        })
+        consumer_config.update(
+            {
+                "bootstrap_servers": bootstrap_servers,
+                "auto.offset.reset": auto_offset_reset,
+            }
+        )
         if group_id is not None:
             consumer_config["group.id"] = group_id
 
-        logger.info("starting RemoteDispatcher with Kafka Consumer configuration:\n%s", consumer_config)
+        logger.info(
+            "starting RemoteDispatcher with Kafka Consumer configuration:\n%s",
+            consumer_config,
+        )
         logger.info("subscribing to Kafka topic(s): %s", topics)
 
         self.consumer = Consumer(consumer_config)
@@ -150,6 +161,7 @@ class RemoteDispatcher(Dispatcher):
         super().__init__()
 
     def _poll(self):
+        logger = logging.getLogger(name=self.__class__.__name__)
         while True:
             msg = self.consumer.poll(1.0)
 
@@ -160,7 +172,12 @@ class RemoteDispatcher(Dispatcher):
                 logger.error("Kafka Consumer error: %s", msg.error())
             else:
                 name, doc = self._deserializer(msg.value())
-                logger.debug("RemoteDispatcher deserialized document with topic %s for Kafka Consumer name: %s doc: %s", msg.topic(), name, doc)
+                logger.debug(
+                    "RemoteDispatcher deserialized document with topic %s for Kafka Consumer name: %s doc: %s",
+                    msg.topic(),
+                    name,
+                    doc,
+                )
                 self.process(DocumentNames[name], doc)
 
     def start(self):
