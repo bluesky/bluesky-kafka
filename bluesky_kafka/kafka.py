@@ -1,5 +1,6 @@
 import copy
 import pickle
+import sys
 
 from confluent_kafka import Consumer, Producer
 
@@ -7,13 +8,23 @@ from bluesky.run_engine import Dispatcher, DocumentNames
 
 
 def delivery_report(err, msg):
-    """ Called once for each message produced to indicate delivery result.
-        Triggered by poll() or flush(). """
+    """
+    Called once for each message produced to indicate delivery result.
+    Triggered by poll() or flush().
+
+    Parameters
+    ----------
+    err
+    msg
+
+    Returns
+    -------
+
+    """
     if err is not None:
-        print('Message delivery failed: {}'.format(err))
+        print("Message delivery failed: {}".format(err))
     else:
-        print('Message delivered to {} [{}]'.format(msg.topic(),
-                                                    msg.partition()))
+        print("Message delivered to {} [{}]".format(msg.topic(), msg.partition()))
 
 
 class Publisher:
@@ -22,13 +33,18 @@ class Publisher:
 
     Reference: https://github.com/confluentinc/confluent-kafka-python/issues/137
 
+    The default configuration of the underlying Kafka Producer is an idempotent
+    producer.
+
     Parameters
     ----------
-    address : string
+    bootstrap_servers : string
         Address of a running Kafka server as a string like
         ``'127.0.0.1:9092'``
+    producer_config: dict, optional
+        Dictionary configuration information used to construct the underlying Kafka Producer
     serializer: function, optional
-        optional function to serialize data. Default is pickle.dumps.
+        Function to serialize data. Default is pickle.dumps.
 
     Example
     -------
@@ -39,28 +55,55 @@ class Publisher:
     >>> RE = RunEngine({})
     >>> RE.subscribe(publisher)
     """
-    def __init__(self, address, *,
-                 serializer=pickle.dumps):
-        self.address = address
-        self.producer = Producer({'bootstrap.servers': self.address})
+
+    def __init__(
+        self,
+        topic,
+        bootstrap_servers,
+        producer_config=None,
+        serializer=pickle.dumps,
+    ):
+        self.topic = topic
+        self.producer_config = {
+            "bootstrap.servers": bootstrap_servers,
+            # require at least 2 brokers receive messages before ack
+            # "min.insync.replicas": 2,
+            "enable.idempotence": True,
+            # require full replication of messages by the broker before ack
+            # "acks": "all",
+            # retry indefinitely
+            # "retries": sys.maxsize,
+            # maintain message order when retrying
+            # "max.in.flight.requests.per.connection": 5
+        }
+        if producer_config is not None:
+            self.producer_config.update(producer_config)
+
+        self.producer = Producer(self.producer_config)
         self._serializer = serializer
 
-    def __call__(self, name, doc):
-        doc = copy.deepcopy(doc)
-        try:
-            self.producer.produce('bluesky-event',
-                                  self._serializer((name, doc)),
-                                  callback=delivery_report)
-            self.producer.poll(0)
-        except BufferError:
-            # poll(...) blocks until there is space on the queue
-            self.producer.poll(10)
-            # repeat produce(...) now that some time has passed
-            self.producer.produce(topic='bluesky-event',
-                                  value=doc,
-                                  callback=self.delivery_report)
+    def __call__(self, name, doc, key=None):
+        """
 
-    def close(self):
+        Parameters
+        ----------
+        name
+        doc
+        key
+
+        Returns
+        -------
+
+        """
+        print(f"KafkaProducer(name={name} doc={doc})")
+        self.producer.produce(
+            topic=self.topic,
+            key=key,
+            value=self._serializer((name, doc)),
+            callback=delivery_report
+        )
+
+    def flush(self):
         self.producer.flush()
 
 
@@ -70,7 +113,7 @@ class RemoteDispatcher(Dispatcher):
 
     Parameters
     ----------
-    address : str or tuple
+    bootstrap_servers : str or tuple
         Address of a Kafka server as a string like ``'127.0.0.1:9092'``
     deserializer: function, optional
         optional function to deserialize data. Default is pickle.loads.
@@ -84,19 +127,24 @@ class RemoteDispatcher(Dispatcher):
     >>> d.subscribe(print)
     >>> d.start()  # runs until interrupted
     """
-    def __init__(self, address, *,
-                 group_id='kafka-bluesky',
-                 deserializer=pickle.loads):
-        self.address = address
+
+    def __init__(self, topics, bootstrap_servers, *, group_id=None, auto_offset_reset="latest", consumer_config=None, deserializer=pickle.loads):
         self._deserializer = deserializer
 
-        consumer_params = {
-            'bootstrap.servers': self.address,
-            'group.id': group_id,
-            'auto.offset.reset': 'latest'
-        }
-        self.consumer = Consumer(consumer_params)
-        self.consumer.subscribe(topics=['bluesky-event'])
+        if consumer_config is None:
+            consumer_config = {}
+        consumer_config.update({
+            "bootstrap_servers": bootstrap_servers,
+            "auto.offset.reset": auto_offset_reset,
+        })
+        if group_id is not None:
+            consumer_config["group.id"] = group_id
+
+        logger.info("starting RemoteDispatcher with Kafka Consumer configuration:\n%s", consumer_config)
+        logger.info("subscribing to Kafka topic(s): %s", topics)
+
+        self.consumer = Consumer(consumer_config)
+        self.consumer.subscribe(topics=topics)
         self.closed = False
 
         super().__init__()
@@ -109,18 +157,19 @@ class RemoteDispatcher(Dispatcher):
                 # no message was found
                 pass
             elif msg.error():
-                print('Consumer error: {}'.format(msg.error()))
+                logger.error("Kafka Consumer error: %s", msg.error())
             else:
-                print('msg is "{}"'.format(msg.topic()))
                 name, doc = self._deserializer(msg.value())
-                print(f'"{name}":\n{doc}')
+                logger.debug("RemoteDispatcher deserialized document with topic %s for Kafka Consumer name: %s doc: %s", msg.topic(), name, doc)
                 self.process(DocumentNames[name], doc)
 
     def start(self):
         if self.closed:
-            raise RuntimeError("This RemoteDispatcher has already been "
-                               "started and interrupted. Create a fresh "
-                               "instance with {}".format(repr(self)))
+            raise RuntimeError(
+                "This RemoteDispatcher has already been "
+                "started and interrupted. Create a fresh "
+                "instance with {}".format(repr(self))
+            )
         try:
             self._poll()
         except Exception:
