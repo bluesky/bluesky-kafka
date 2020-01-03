@@ -74,6 +74,7 @@ def test_kafka(RE, hw, bootstrap_servers):
     RE.subscribe(local_cb)
     RE(count([hw.det]), md=md)
     kafka_publisher.flush()
+    time.sleep(10)
 
     # Get the documents from the queue (or timeout --- test will fail)
     remote_accumulator = []
