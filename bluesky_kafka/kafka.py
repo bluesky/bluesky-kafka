@@ -90,7 +90,7 @@ class Publisher:
         -------
 
         """
-        print(f"KafkaProducer(name={name} doc={doc})")
+        print(f"KafkaProducer(topic={self.topic} key={key} msg=[name={name} doc={doc}])")
         self.producer.produce(
             topic=self.topic,
             key=key,
