@@ -22,10 +22,7 @@ def test_kafka(RE, hw, bootstrap_servers):
         topic=TEST_TOPIC,
         bootstrap_servers=bootstrap_servers,
         # work with a single broker
-        producer_config={
-            "acks": 1,
-            "enable.idempotence": False
-        }
+        producer_config={"acks": 1, "enable.idempotence": False},
     )
     RE.subscribe(kafka_publisher)
 
@@ -40,7 +37,10 @@ def test_kafka(RE, hw, bootstrap_servers):
             queue.put((name, doc))
 
         kafka_dispatcher = RemoteDispatcher(
-            topics=[TEST_TOPIC], bootstrap_servers=bootstrap_servers, group_id="kafka-unit-test"
+            topics=[TEST_TOPIC],
+            bootstrap_servers=bootstrap_servers,
+            group_id="kafka-unit-test",
+            auto_offset_reset="earliest",
         )
         kafka_dispatcher.subscribe(put_in_queue)
         kafka_dispatcher.start()
