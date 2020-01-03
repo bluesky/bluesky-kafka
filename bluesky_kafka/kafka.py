@@ -141,7 +141,7 @@ class RemoteDispatcher(Dispatcher):
             consumer_config = {}
         consumer_config.update(
             {
-                "bootstrap_servers": bootstrap_servers,
+                "bootstrap.servers": bootstrap_servers,
                 "auto.offset.reset": auto_offset_reset,
             }
         )
