@@ -23,7 +23,11 @@ def delivery_report(err, msg):
     if err is not None:
         print("Message delivery failed: {}".format(err))
     else:
-        print("Message delivered to topic ""{}"" [partition {}]".format(msg.topic(), msg.partition()))
+        print(
+            "Message delivered to topic "
+            "{}"
+            " [partition {}]".format(msg.topic(), msg.partition())
+        )
 
 
 class Publisher:
@@ -91,7 +95,9 @@ class Publisher:
         -------
 
         """
-        print(f"KafkaProducer(topic={self.topic} key={key} msg=[name={name} doc={doc}])")
+        print(
+            f"KafkaProducer(topic={self.topic} key={key} msg=[name={name} doc={doc}])"
+        )
         self.producer.produce(
             topic=self.topic,
             key=key,
@@ -109,8 +115,18 @@ class RemoteDispatcher(Dispatcher):
 
     Parameters
     ----------
+    topics: list
+        List of topics as strings such as ["topic-1", "topic-2"]
     bootstrap_servers : str
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
+    group_id: str
+        String identifier for Kafka Consumer group
+    auto_offset_reset: str
+        "earliest" to receive all messages held by the broker and all future messages
+        "latest" to receive only future messages (sent after starting this dispatcher)
+         Default is "latest".
+    consumer_config: dict
+        Optionally override default configuration or specify additional configuration options to confluent_kafka.Consumer.
     deserializer: function, optional
         optional function to deserialize data. Default is pickle.loads.
 
