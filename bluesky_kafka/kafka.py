@@ -109,8 +109,8 @@ class RemoteDispatcher(Dispatcher):
 
     Parameters
     ----------
-    bootstrap_servers : str or tuple
-        Address of a Kafka server as a string like ``'127.0.0.1:9092'``
+    bootstrap_servers : str
+        Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
     deserializer: function, optional
         optional function to deserialize data. Default is pickle.loads.
 
