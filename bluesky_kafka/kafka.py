@@ -145,7 +145,7 @@ class RemoteDispatcher(Dispatcher):
         topics,
         bootstrap_servers,
         *,
-        group_id=None,
+        group_id,
         auto_offset_reset="latest",
         consumer_config=None,
         deserializer=pickle.loads,
