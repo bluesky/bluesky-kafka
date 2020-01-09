@@ -63,8 +63,6 @@ class Publisher:
         self.topic = topic
         self.producer_config = {
             "bootstrap.servers": bootstrap_servers,
-            # require at least 2 brokers receive messages before ack
-            # "min.insync.replicas": 2,
             "enable.idempotence": True,
             # require full replication of messages by the broker before ack
             # "acks": "all",
