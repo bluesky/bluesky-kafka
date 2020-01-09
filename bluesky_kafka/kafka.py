@@ -80,9 +80,12 @@ class Publisher:
 
         Parameters
         ----------
-        name
-        doc
-        key
+        name: str
+            Document name, one of "start", "descriptor", "event", "resource", "datum", "stop".
+        doc: dict
+            event-model document dictionary
+        key: str
+            Optional Kafka "key" string. Specify a key to maintain order of messages.
 
         Returns
         -------
