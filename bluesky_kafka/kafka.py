@@ -64,12 +64,10 @@ class Publisher:
         self.producer_config = {
             "bootstrap.servers": bootstrap_servers,
             "enable.idempotence": True,
-            # require full replication of messages by the broker before ack
-            # "acks": "all",
-            # retry indefinitely
-            # "retries": sys.maxsize,
-            # maintain message order when retrying
-            # "max.in.flight.requests.per.connection": 5
+            # "enable.idempotence": True is shorthand for the following configuration:
+            # "acks": "all",                              # acknowledge only after all brokers receive a message
+            # "retries": sys.maxsize,                     # retry indefinitely
+            # "max.in.flight.requests.per.connection": 5  # maintain message order when retrying
         }
         if producer_config is not None:
             self.producer_config.update(producer_config)
