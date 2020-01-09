@@ -32,8 +32,11 @@ class Publisher:
 
     Reference: https://github.com/confluentinc/confluent-kafka-python/issues/137
 
-    The default configuration of the underlying Kafka Producer is an idempotent
-    producer.
+    The default configuration of the underlying Kafka Producer is an "idempotent"
+    producer. This means three things:
+        1) delivery acknowledgement is not sent until all replicate brokers have received a message
+        2) message delivery will be retried indefinitely (messages will not be dropped by the Producer)
+        3) message order will be maintained
 
     Parameters
     ----------
