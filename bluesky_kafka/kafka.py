@@ -40,9 +40,8 @@ class Publisher:
 
     Parameters
     ----------
-    bootstrap_servers : string
-        Address of a running Kafka server as a string like
-        ``'127.0.0.1:9092'``
+    bootstrap_servers : str
+        Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
     producer_config: dict, optional
         Dictionary configuration information used to construct the underlying Kafka Producer
     serializer: function, optional
