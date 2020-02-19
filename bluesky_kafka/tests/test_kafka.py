@@ -32,6 +32,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
     kafka_publisher = Publisher(
         topic=TEST_TOPIC,
         bootstrap_servers=bootstrap_servers,
+        key="kafka-unit-test-key",
         # work with a single broker
         producer_config={
             "acks": 1,
@@ -56,8 +57,8 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
         kafka_dispatcher = RemoteDispatcher(
             topics=[TEST_TOPIC],
             bootstrap_servers=bootstrap_servers,
-            group_id="kafka-unit-test",
-            auto_offset_reset="earliest",
+            group_id="kafka-unit-test-group-id",
+            auto_offset_reset="latest",
             deserializer=deserializer,
         )
         kafka_dispatcher.subscribe(put_in_queue)
