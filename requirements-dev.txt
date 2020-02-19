@@ -1,5 +1,5 @@
 ophyd
-msgpack
+msgpack>=1.0.0
 codecov
 coverage
 flake8
