@@ -72,7 +72,7 @@ class Publisher:
         self,
         topic,
         bootstrap_servers,
-        key=None,
+        key,
         producer_config=None,
         serializer=pickle.dumps,
     ):
@@ -81,7 +81,7 @@ class Publisher:
         self.key = key
         self.producer_config = {
             "bootstrap.servers": bootstrap_servers,
-            "enable.idempotence": True,
+            #"enable.idempotence": True,
             # "enable.idempotence": True is shorthand for the following configuration:
             # "acks": "all",                              # acknowledge only after all brokers receive a message
             # "retries": sys.maxsize,                     # retry indefinitely
@@ -163,7 +163,6 @@ class RemoteDispatcher(Dispatcher):
         self,
         topics,
         bootstrap_servers,
-        *,
         group_id,
         auto_offset_reset="latest",
         consumer_config=None,
@@ -204,15 +203,18 @@ class RemoteDispatcher(Dispatcher):
             elif msg.error():
                 logger.error("Kafka Consumer error: %s", msg.error())
             else:
-                name, doc = self._deserializer(msg.value())
-                logger.debug(
-                    "RemoteDispatcher deserialized document with "
-                    "topic %s for Kafka Consumer name: %s doc: %s",
-                    msg.topic(),
-                    name,
-                    doc,
-                )
-                self.process(DocumentNames[name], doc)
+                try:
+                    name, doc = self._deserializer(msg.value())
+                    logger.debug(
+                        "RemoteDispatcher deserialized document with "
+                        "topic %s for Kafka Consumer name: %s doc: %s",
+                        msg.topic(),
+                        name,
+                        doc,
+                    )
+                    self.process(DocumentNames[name], doc)
+                except Exception as exc:
+                    logger.exception(exc)
 
     def start(self):
         if self.closed:
