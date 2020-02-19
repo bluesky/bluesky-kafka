@@ -191,12 +191,18 @@ class RemoteDispatcher(Dispatcher):
         self.consumer = Consumer(consumer_config)
         self.consumer.subscribe(topics=topics)
         self.closed = False
-
+        from matplotlib.backends.backend_qt5 import _create_qApp
+        import matplotlib.backends.backend_qt5
+        _create_qApp()
+        self.qApp = matplotlib.backends.backend_qt5.qApp
         super().__init__()
 
     def _poll(self):
         while True:
-            msg = self.consumer.poll(1.0)
+            if self.qApp is not None:
+                self.qApp.processEvents()
+
+            msg = self.consumer.poll(.05)
 
             if msg is None:
                 # no message was found
