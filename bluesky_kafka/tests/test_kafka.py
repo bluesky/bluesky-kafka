@@ -49,7 +49,8 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
 
     def make_and_start_dispatcher(queue):
         def put_in_queue(name, doc):
-            print("putting ", name, "in queue")
+            logger = logging.getLogger("bluesky.kafka")
+            logger.debug("putting %s in queue", name)
             queue.put((name, doc))
 
         kafka_dispatcher = RemoteDispatcher(
@@ -107,4 +108,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
     pprint.pprint(remote_accumulator)
 
     # numpy arrays cause trouble sometimes
+    # msgpack
+    #remote_accumulator[0][1].pop("hints")
+    #local_accumulator[0][1].pop("hints")
     assert remote_accumulator == local_accumulator
