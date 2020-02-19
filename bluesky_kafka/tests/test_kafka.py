@@ -1,3 +1,4 @@
+import logging
 import multiprocessing
 import pprint
 import time
@@ -7,6 +8,8 @@ import pickle
 
 import msgpack
 import pytest
+
+logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 
 from bluesky_kafka import Publisher, RemoteDispatcher
 from bluesky.plans import count
