@@ -3,18 +3,26 @@ import pprint
 import time
 
 import numpy as np
+import pickle
 
-from bluesky_kafka.kafka import Publisher, RemoteDispatcher
+import msgpack
+import pytest
+
+from bluesky_kafka import Publisher, RemoteDispatcher
 from bluesky.plans import count
 
 
 TEST_TOPIC = "bluesky-kafka-test"
 
 
-def test_kafka(RE, hw, bootstrap_servers):
+@pytest.mark.parametrize(
+    "serializer,deserializer",
+    [(pickle.dumps, pickle.loads), (msgpack.dumps, msgpack.loads)],
+)
+def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
     # COMPONENT 1
     # a Kafka broker must be running
-    # in addition the broker must have a topic "bluesky-kafka-test"
+    # in addition the broker must have topic "bluesky-kafka-test"
 
     # COMPONENT 2
     # Run a Publisher and a RunEngine in this process
@@ -22,7 +30,12 @@ def test_kafka(RE, hw, bootstrap_servers):
         topic=TEST_TOPIC,
         bootstrap_servers=bootstrap_servers,
         # work with a single broker
-        producer_config={"acks": 1, "enable.idempotence": False},
+        producer_config={
+            "acks": 1,
+            "enable.idempotence": False,
+            "request.timeout.ms": 5000,
+        },
+        serializer=serializer,
     )
     RE.subscribe(kafka_publisher)
 
@@ -41,6 +54,7 @@ def test_kafka(RE, hw, bootstrap_servers):
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test",
             auto_offset_reset="earliest",
+            deserializer=deserializer,
         )
         kafka_dispatcher.subscribe(put_in_queue)
         kafka_dispatcher.start()
