@@ -6,7 +6,8 @@ from confluent_kafka import Consumer, Producer
 from bluesky.run_engine import Dispatcher, DocumentNames
 
 from ._version import get_versions
-__version__ = get_versions()['version']
+
+__version__ = get_versions()["version"]
 del get_versions
 
 logger = logging.getLogger(name="bluesky.kafka")
@@ -39,11 +40,28 @@ class Publisher:
 
     Reference: https://github.com/confluentinc/confluent-kafka-python/issues/137
 
-    The default configuration of the underlying Kafka Producer is an "idempotent"
-    producer. This means three things:
+    There is no default configuration. A reasonable production configuration for use
+    with bluesky is Kafka's "idempotent" configuration specified by
+        producer_config = {
+            "enable.idempotence": True
+        }
+    This is short for
+        producer_config = {
+            "acks": "all",                              # acknowledge only after all brokers receive a message
+            "retries": sys.maxsize,                     # retry indefinitely
+            "max.in.flight.requests.per.connection": 5  # maintain message order *when retrying*
+        }
+
+    This means three things:
         1) delivery acknowledgement is not sent until all replicate brokers have received a message
         2) message delivery will be retried indefinitely (messages will not be dropped by the Producer)
-        3) message order will be maintained
+        3) message order will be maintained during retries
+
+    A reasonable testing configuration is
+        producer_config={
+            "acks": 1,
+            "request.timeout.ms": 5000,
+        }
 
     Parameters
     ----------
@@ -52,7 +70,8 @@ class Publisher:
     bootstrap_servers: str
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
     key: str
-        Optional Kafka "key" string. Specify a key to maintain order of messages.
+        Kafka "key" string. Specify a key to maintain message order. If None is specified
+        no ordering will be imposed on messages.
     producer_config: dict, optional
         Dictionary configuration information used to construct the underlying Kafka Producer
     serializer: function, optional
@@ -63,7 +82,11 @@ class Publisher:
 
     Publish documents from a RunEngine to a Kafka broker on localhost on port 9092.
 
-    >>> publisher = Publisher('localhost:9092')
+    >>> publisher = Publisher(
+    >>>     topic="bluesky.documents",
+    >>>     bootstrap_servers='localhost:9092',
+    >>>     key="abcdef"
+    >>> )
     >>> RE = RunEngine({})
     >>> RE.subscribe(publisher)
     """
@@ -79,17 +102,19 @@ class Publisher:
         self.topic = topic
         self.bootstrap_servers = bootstrap_servers
         self.key = key
-        self.producer_config = {
-            "bootstrap.servers": bootstrap_servers,
-            #"enable.idempotence": True,
-            # "enable.idempotence": True is shorthand for the following configuration:
-            # "acks": "all",                              # acknowledge only after all brokers receive a message
-            # "retries": sys.maxsize,                     # retry indefinitely
-            # "max.in.flight.requests.per.connection": 5  # maintain message order when retrying
-        }
+        # in the case that "bootstrap.servers" is included in producer_config
+        # combine it with the bootstrap_servers argument
+        self.producer_config = dict()
         if producer_config is not None:
             self.producer_config.update(producer_config)
-        logger.debug("producer configuration: %s", self.producer_config)
+        if "bootstrap.servers" in self.producer_config:
+            self.producer_config["bootstrap.servers"] = ",".join(
+                [bootstrap_servers, self.producer_config["bootstrap.servers"]]
+            )
+        else:
+            self.producer_config["bootstrap.servers"] = bootstrap_servers
+
+        logger.info("producer configuration: %s", self.producer_config)
 
         self.producer = Producer(self.producer_config)
         self._serializer = serializer
@@ -111,7 +136,7 @@ class Publisher:
             self.topic,
             self.key,
             name,
-            doc
+            doc,
         )
         self.producer.produce(
             topic=self.topic,
@@ -131,6 +156,11 @@ class RemoteDispatcher(Dispatcher):
     """
     Dispatch documents received over the network from a Kafka server.
 
+    There is no default configuration. A reasonable configuration for production is
+        consumer_config={
+            "auto.offset.reset": "latest"
+        }
+
     Parameters
     ----------
     topics: list
@@ -139,13 +169,12 @@ class RemoteDispatcher(Dispatcher):
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
     group_id: str
         Required string identifier for Kafka Consumer group
-    auto_offset_reset: str
-        "earliest" to receive all messages held by the broker and all future messages
-        "latest" to receive only future messages (sent after starting this dispatcher)
-         Default is "latest".
     consumer_config: dict
-        Optionally override default configuration or specify additional configuration
+        Override default configuration or specify additional configuration
         options to confluent_kafka.Consumer.
+    polling_duration: float
+        Time in seconds to wait for a message before running function work_while_waiting.
+        Default is 0.05.
     deserializer: function, optional
         optional function to deserialize data. Default is pickle.loads.
 
@@ -154,7 +183,14 @@ class RemoteDispatcher(Dispatcher):
 
     Print all documents generated by remote RunEngines.
 
-    >>> d = RemoteDispatcher('localhost:9092')
+    >>> d = RemoteDispatcher(
+    >>>         topics=["abc.def", "ghi.jkl"],
+    >>>         bootstrap_servers='localhost:9092',
+    >>>         group_id="xyz",
+    >>>         consumer_config={
+    >>>             "auto.offset.reset": "latest"
+    >>>         }
+    >>>    )
     >>> d.subscribe(print)
     >>> d.start()  # runs until interrupted
     """
@@ -164,22 +200,33 @@ class RemoteDispatcher(Dispatcher):
         topics,
         bootstrap_servers,
         group_id,
-        auto_offset_reset="latest",
         consumer_config=None,
+        polling_duration=0.05,
         deserializer=pickle.loads,
     ):
+        super().__init__()
+
+        self.polling_duration = polling_duration
         self._deserializer = deserializer
 
-        if consumer_config is None:
-            consumer_config = {}
-        consumer_config.update(
-            {
-                "bootstrap.servers": bootstrap_servers,
-                "auto.offset.reset": auto_offset_reset,
-            }
-        )
-        if group_id is not None:
-            consumer_config["group.id"] = group_id
+        self.consumer_config = dict()
+        if consumer_config is not None:
+            self.consumer_config.update(consumer_config)
+
+        if "group.id" in self.consumer_config:
+            raise ValueError(
+                "do not specify 'group.id' in consumer_config, use only the 'group_id' argument"
+            )
+        else:
+            self.consumer_config["group.id"] = group_id
+
+        if "bootstrap.servers" in self.consumer_config:
+            self.consumer_config["bootstrap.servers"] = ",".join(
+                [bootstrap_servers, self.consumer_config["bootstrap.servers"]]
+            )
+        else:
+            self.consumer_config["bootstrap.servers"] = bootstrap_servers
+
 
         logger.info(
             "starting RemoteDispatcher with Kafka Consumer configuration:\n%s",
@@ -187,14 +234,9 @@ class RemoteDispatcher(Dispatcher):
         )
         logger.info("subscribing to Kafka topic(s): %s", topics)
 
-        self.consumer = Consumer(consumer_config)
+        self.consumer = Consumer(self.consumer_config)
         self.consumer.subscribe(topics=topics)
         self.closed = False
-        from matplotlib.backends.backend_qt5 import _create_qApp
-        import matplotlib.backends.backend_qt5
-        _create_qApp()
-        self.qApp = matplotlib.backends.backend_qt5.qApp
-        super().__init__()
 
     def _poll(self):
         while True:
