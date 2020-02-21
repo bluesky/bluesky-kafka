@@ -125,6 +125,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
             consumer_config={"auto.offset.reset": "latest"},
+            polling_duration=1.0,
             deserializer=deserializer,
         )
         kafka_dispatcher.subscribe(put_in_queue)
