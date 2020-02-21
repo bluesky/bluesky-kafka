@@ -240,10 +240,7 @@ class RemoteDispatcher(Dispatcher):
 
     def _poll(self, work_during_wait):
         while True:
-            if self.qApp is not None:
-                self.qApp.processEvents()
-
-            msg = self.consumer.poll(.05)
+            msg = self.consumer.poll(self.polling_duration)
 
             if msg is None:
                 # no message was delivered
