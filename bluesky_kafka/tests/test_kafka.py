@@ -1,3 +1,4 @@
+from functools import partial
 import logging
 import multiprocessing
 import pprint
@@ -7,7 +8,11 @@ import numpy as np
 import pickle
 
 import msgpack
+import msgpack_numpy as mpn
 import pytest
+
+# this caused a utf-8 decode error
+# mpn.patch()
 
 logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 
@@ -20,7 +25,13 @@ TEST_TOPIC = "bluesky-kafka-test"
 
 @pytest.mark.parametrize(
     "serializer,deserializer",
-    [(pickle.dumps, pickle.loads), (msgpack.dumps, msgpack.loads)],
+    [
+        (pickle.dumps, pickle.loads),
+        (
+            partial(msgpack.dumps, default=mpn.encode),
+            partial(msgpack.loads, object_hook=mpn.decode),
+        ),
+    ],
 )
 def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
     # COMPONENT 1
@@ -58,7 +69,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
             topics=[TEST_TOPIC],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
-            auto_offset_reset="latest",
+            consumer_config={"auto.offset.reset": "latest"},
             deserializer=deserializer,
         )
         kafka_dispatcher.subscribe(put_in_queue)
@@ -81,14 +92,12 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
     # sending numpy arrays with md causes this:
     #    assert remote_accumulator == local_accumulator
     #    ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
-    # md = {
-    #     'numpy_data': {
-    #         'nested': np.array([1, 2, 3])
-    #     },
-    #    'numpy_scalar': np.float64(3),
-    #    'numpy_array': np.ones((3, 3))
-    # }
-    md = {}
+    # so the arrays are unpacked and compared explicitly
+    md = {
+        "numpy_data": {"nested": np.array([1, 2, 3])},
+        "numpy_scalar": np.float64(3),
+        "numpy_array": np.ones((3, 3)),
+    }
 
     RE.subscribe(local_cb)
     RE(count([hw.det]), md=md)
@@ -108,8 +117,26 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
     print("remote_accumulator:")
     pprint.pprint(remote_accumulator)
 
-    # numpy arrays cause trouble sometimes
-    # msgpack
-    #remote_accumulator[0][1].pop("hints")
-    #local_accumulator[0][1].pop("hints")
+    remote_np = remote_accumulator[0][1].pop("md")
+    local_np = local_accumulator[0][1].pop("md")
+
+    assert np.all(remote_np["numpy_data"]["nested"] == local_np["numpy_data"]["nested"])
+    assert np.all(remote_np["numpy_scalar"] == local_np["numpy_scalar"])
+    assert np.all(remote_np["numpy_array"] == local_np["numpy_array"])
+
+    # msgpack fails like this:
+    #     Full diff:
+    #     [
+    #         ('start',
+    #            {'detectors': ['det'],
+    #           - 'hints': {'dimensions': [[['time'], 'primary']]},
+    #           ?                          ^^      -           ^
+    #           + 'hints': {'dimensions': [(('time',), 'primary')]},
+    #           ?                          ^^       ++          ^
+    #     'md': {},
+    # so remove "hints" from the comparison between
+    # remote and local documents
+    remote_accumulator[0][1].pop("hints")
+    local_accumulator[0][1].pop("hints")
+
     assert remote_accumulator == local_accumulator
