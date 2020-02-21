@@ -23,6 +23,61 @@ from bluesky.plans import count
 TEST_TOPIC = "bluesky-kafka-test"
 
 
+def test_producer_config():
+    kafka_publisher = Publisher(
+        topic=TEST_TOPIC,
+        bootstrap_servers="1.2.3.4:9092",
+        key="kafka-unit-test-key",
+        # work with a single broker
+        producer_config={
+            "bootstrap.servers": "5.6.7.8:9092",
+            "acks": 1,
+            "enable.idempotence": False,
+            "request.timeout.ms": 5000,
+        },
+    )
+
+    assert (
+        kafka_publisher.producer_config["bootstrap.servers"]
+        == "1.2.3.4:9092,5.6.7.8:9092"
+    )
+
+
+def test_consumer_config():
+    kafka_dispatcher = RemoteDispatcher(
+        topics=[TEST_TOPIC],
+        bootstrap_servers="1.2.3.4:9092",
+        group_id="abc",
+        consumer_config={
+            "bootstrap.servers": "5.6.7.8:9092",
+            "auto.offset.reset": "latest",
+        },
+    )
+
+    assert (
+        kafka_dispatcher.consumer_config["bootstrap.servers"]
+        == "1.2.3.4:9092,5.6.7.8:9092"
+    )
+
+
+def test_bad_consumer_config():
+    with pytest.raises(ValueError) as excinfo:
+        kafka_dispatcher = RemoteDispatcher(
+            topics=[TEST_TOPIC],
+            bootstrap_servers="1.2.3.4:9092",
+            group_id="abc",
+            consumer_config={
+                "bootstrap.servers": "5.6.7.8:9092",
+                "auto.offset.reset": "latest",
+                "group.id": "raise an exception!",
+            },
+        )
+        assert (
+            "do not specify 'group.id' in consumer_config, use only the 'group_id' argument"
+            in excinfo.value
+        )
+
+
 @pytest.mark.parametrize(
     "serializer,deserializer",
     [
