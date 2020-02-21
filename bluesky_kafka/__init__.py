@@ -238,7 +238,7 @@ class RemoteDispatcher(Dispatcher):
         self.consumer.subscribe(topics=topics)
         self.closed = False
 
-    def _poll(self):
+    def _poll(self, work_during_wait):
         while True:
             if self.qApp is not None:
                 self.qApp.processEvents()
@@ -246,8 +246,9 @@ class RemoteDispatcher(Dispatcher):
             msg = self.consumer.poll(.05)
 
             if msg is None:
-                # no message was found
-                pass
+                # no message was delivered
+                # do some work before polling again
+                work_during_wait()
             elif msg.error():
                 logger.error("Kafka Consumer error: %s", msg.error())
             else:
@@ -264,7 +265,14 @@ class RemoteDispatcher(Dispatcher):
                 except Exception as exc:
                     logger.exception(exc)
 
-    def start(self):
+    def start(self, work_during_wait=None):
+        def no_work_during_wait():
+            # do nothing between message deliveries
+            pass
+
+        if work_during_wait is None:
+            work_during_wait = no_work_during_wait
+
         if self.closed:
             raise RuntimeError(
                 "This RemoteDispatcher has already been "
@@ -272,7 +280,7 @@ class RemoteDispatcher(Dispatcher):
                 f"instance with {repr(self)}"
             )
         try:
-            self._poll()
+            self._poll(work_during_wait=work_during_wait)
         except Exception:
             self.stop()
             raise
