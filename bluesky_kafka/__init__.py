@@ -25,10 +25,10 @@ def delivery_report(err, msg):
 
     """
     if err is not None:
-        logger.error(f"message delivery failed: %s", err)
+        logger.error("message delivery failed: %s", err)
     else:
         logger.debug(
-            f"message delivered to topic %s [partition %s]",
+            "message delivered to topic %s [partition %s]",
             msg.topic(),
             msg.partition(),
         )
