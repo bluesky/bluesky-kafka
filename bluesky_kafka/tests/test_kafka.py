@@ -79,16 +79,17 @@ def test_bad_consumer_config():
 
 
 @pytest.mark.parametrize(
-    "serializer,deserializer",
+    "serializer,deserializer,auto_offset_reset",
     [
         (pickle.dumps, pickle.loads),
         (
             partial(msgpack.dumps, default=mpn.encode),
             partial(msgpack.loads, object_hook=mpn.decode),
         ),
+        ("earliest", "latest")
     ],
 )
-def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
+def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_reset):
     # COMPONENT 1
     # a Kafka broker must be running
     # in addition the broker must have topic "bluesky-kafka-test"
@@ -108,6 +109,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
         serializer=serializer,
     )
     RE.subscribe(kafka_publisher)
+    time.sleep(10)
 
     # COMPONENT 3
     # Run a RemoteDispatcher on a separate process. Pass the documents
@@ -124,7 +126,9 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
             topics=[TEST_TOPIC],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
-            consumer_config={"auto.offset.reset": "earliest"},
+            # "latest" should always work but
+            # has been failing on Linux, passing on OSX
+            consumer_config={"auto.offset.reset": auto_offset_reset},
             polling_duration=1.0,
             deserializer=deserializer,
         )
