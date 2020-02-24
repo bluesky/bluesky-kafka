@@ -124,7 +124,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer):
             topics=[TEST_TOPIC],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
-            consumer_config={"auto.offset.reset": "latest"},
+            consumer_config={"auto.offset.reset": "earliest"},
             polling_duration=1.0,
             deserializer=deserializer,
         )
