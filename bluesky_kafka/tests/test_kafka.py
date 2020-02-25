@@ -11,7 +11,8 @@ import msgpack
 import msgpack_numpy as mpn
 import pytest
 
-# this caused a utf-8 decode error
+# this is recommended by msgpack-numpy as a way
+# to patch msgpack but it caused a utf-8 decode error
 # mpn.patch()
 
 logging.getLogger("bluesky.kafka").setLevel("DEBUG")
