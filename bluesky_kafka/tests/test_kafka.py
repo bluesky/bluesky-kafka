@@ -39,7 +39,7 @@ def test_producer_config():
     )
 
     assert (
-        kafka_publisher.producer_config["bootstrap.servers"]
+        kafka_publisher._producer_config["bootstrap.servers"]
         == "1.2.3.4:9092,5.6.7.8:9092"
     )
 
@@ -56,7 +56,7 @@ def test_consumer_config():
     )
 
     assert (
-        kafka_dispatcher.consumer_config["bootstrap.servers"]
+        kafka_dispatcher._consumer_config["bootstrap.servers"]
         == "1.2.3.4:9092,5.6.7.8:9092"
     )
 
@@ -162,6 +162,8 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
 
     RE.subscribe(local_cb)
     RE(count([hw.det]), md=md)
+    kafka_publisher.flush()
+    time.sleep(10)
     kafka_publisher.flush()
     time.sleep(10)
 
