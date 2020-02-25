@@ -80,14 +80,20 @@ def test_bad_consumer_config():
 
 
 @pytest.mark.parametrize(
-    "serializer,deserializer,auto_offset_reset",
+    "serializer, deserializer, auto_offset_reset",
     [
-        (pickle.dumps, pickle.loads),
+        (pickle.dumps, pickle.loads, "earliest"),
+        (pickle.dumps, pickle.loads, "latest"),
         (
             partial(msgpack.dumps, default=mpn.encode),
             partial(msgpack.loads, object_hook=mpn.decode),
+            "earliest"
         ),
-        ("earliest", "latest")
+        (
+                partial(msgpack.dumps, default=mpn.encode),
+                partial(msgpack.loads, object_hook=mpn.decode),
+                "latest"
+        ),
     ],
 )
 def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_reset):
