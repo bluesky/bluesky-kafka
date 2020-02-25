@@ -99,24 +99,24 @@ class Publisher:
         producer_config=None,
         serializer=pickle.dumps,
     ):
-        self.topic = topic
-        self.bootstrap_servers = bootstrap_servers
-        self.key = key
+        self._topic = topic
+        self._bootstrap_servers = bootstrap_servers
+        self._key = key
         # in the case that "bootstrap.servers" is included in producer_config
         # combine it with the bootstrap_servers argument
-        self.producer_config = dict()
+        self._producer_config = dict()
         if producer_config is not None:
-            self.producer_config.update(producer_config)
-        if "bootstrap.servers" in self.producer_config:
-            self.producer_config["bootstrap.servers"] = ",".join(
-                [bootstrap_servers, self.producer_config["bootstrap.servers"]]
+            self._producer_config.update(producer_config)
+        if "bootstrap.servers" in self._producer_config:
+            self._producer_config["bootstrap.servers"] = ",".join(
+                [bootstrap_servers, self._producer_config["bootstrap.servers"]]
             )
         else:
-            self.producer_config["bootstrap.servers"] = bootstrap_servers
+            self._producer_config["bootstrap.servers"] = bootstrap_servers
 
-        logger.info("producer configuration: %s", self.producer_config)
+        logger.info("producer configuration: %s", self._producer_config)
 
-        self.producer = Producer(self.producer_config)
+        self._producer = Producer(self._producer_config)
         self._serializer = serializer
 
     def __call__(self, name, doc):
@@ -133,14 +133,14 @@ class Publisher:
         """
         logger.debug(
             "KafkaProducer(topic=%s key=%s msg=[name=%s, doc=%s])",
-            self.topic,
-            self.key,
+            self._topic,
+            self._key,
             name,
             doc,
         )
-        self.producer.produce(
-            topic=self.topic,
-            key=self.key,
+        self._producer.produce(
+            topic=self._topic,
+            key=self._key,
             value=self._serializer((name, doc)),
             callback=delivery_report,
         )
@@ -149,7 +149,7 @@ class Publisher:
         """
         Flush all buffered messages to the broker(s).
         """
-        self.producer.flush()
+        self._producer.flush()
 
 
 class RemoteDispatcher(Dispatcher):
@@ -206,41 +206,43 @@ class RemoteDispatcher(Dispatcher):
     ):
         super().__init__()
 
+        self._topics = topics
+        self._bootstrap_servers = bootstrap_servers
+        self._group_id = group_id
         self.polling_duration = polling_duration
         self._deserializer = deserializer
 
-        self.consumer_config = dict()
+        self._consumer_config = dict()
         if consumer_config is not None:
-            self.consumer_config.update(consumer_config)
+            self._consumer_config.update(consumer_config)
 
-        if "group.id" in self.consumer_config:
+        if "group.id" in self._consumer_config:
             raise ValueError(
                 "do not specify 'group.id' in consumer_config, use only the 'group_id' argument"
             )
         else:
-            self.consumer_config["group.id"] = group_id
+            self._consumer_config["group.id"] = group_id
 
-        if "bootstrap.servers" in self.consumer_config:
-            self.consumer_config["bootstrap.servers"] = ",".join(
-                [bootstrap_servers, self.consumer_config["bootstrap.servers"]]
+        if "bootstrap.servers" in self._consumer_config:
+            self._consumer_config["bootstrap.servers"] = ",".join(
+                [bootstrap_servers, self._consumer_config["bootstrap.servers"]]
             )
         else:
-            self.consumer_config["bootstrap.servers"] = bootstrap_servers
-
+            self._consumer_config["bootstrap.servers"] = bootstrap_servers
 
         logger.info(
             "starting RemoteDispatcher with Kafka Consumer configuration:\n%s",
-            consumer_config,
+            self._consumer_config,
         )
         logger.info("subscribing to Kafka topic(s): %s", topics)
 
-        self.consumer = Consumer(self.consumer_config)
-        self.consumer.subscribe(topics=topics)
+        self._consumer = Consumer(self._consumer_config)
+        self._consumer.subscribe(topics=topics)
         self.closed = False
 
     def _poll(self, work_during_wait):
         while True:
-            msg = self.consumer.poll(self.polling_duration)
+            msg = self._consumer.poll(self.polling_duration)
 
             if msg is None:
                 # no message was delivered
@@ -283,5 +285,5 @@ class RemoteDispatcher(Dispatcher):
             raise
 
     def stop(self):
-        self.consumer.close()
+        self._consumer.close()
         self.closed = True
