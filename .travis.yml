@@ -77,7 +77,6 @@ before_script:
         brew services start kafka
         sleep 10
     else
-        #sudo docker-compose -f scripts/kafka-docker-compose.yml up > kafka_zookeeper.log &
         sudo docker-compose -f scripts/bitnami-kafka-docker-compose.yml up > kafka_zookeeper.log &
         sleep 20
     fi
