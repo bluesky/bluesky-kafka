@@ -1,5 +1,5 @@
 ophyd
-msgpack>=1.0.0
+msgpack >=1.0.0
 msgpack-numpy
 codecov
 coverage
