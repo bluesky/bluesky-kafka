@@ -63,9 +63,7 @@ before_install:
     fi
 
 install:
-  # Install this package and the packages listed in requirements.txt.
   - pip install .
-  # Install extra requirements for running tests and building docs.
   - pip install -r requirements-dev.txt
 
 before_script:
@@ -83,7 +81,7 @@ before_script:
 
 script:
   - cd bluesky_kafka
-  - coverage run -m pytest --kafka-bootstrap-servers localhost:29092 # Run the tests and check for test coverage.
-  - coverage report -m  # Generate test coverage report.
-  - codecov  # Upload the report to codecov.
+  - coverage run -m pytest --kafka-bootstrap-servers localhost:9092
+  - coverage report -m
+  - codecov
   # - flake8 --max-line-length=115  # Enforce code style (but relax line length limit a bit).
