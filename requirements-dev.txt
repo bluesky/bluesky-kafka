@@ -1,13 +1,11 @@
 ophyd
-
-# These are required for developing the package (running the tests, building
-# the documentation) but not necessarily required for _using_ it.
+msgpack >=1.0.0
+msgpack-numpy
 codecov
 coverage
 flake8
 pytest
 sphinx
-# These are dependencies of various sphinx extensions for documentation.
 ipython
 matplotlib
 numpydoc

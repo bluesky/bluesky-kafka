@@ -1,4 +1,4 @@
-dist: xenial
+dist: bionic
 language: python
 sudo: false
 
@@ -63,9 +63,7 @@ before_install:
     fi
 
 install:
-  # Install this package and the packages listed in requirements.txt.
   - pip install .
-  # Install extra requirements for running tests and building docs.
   - pip install -r requirements-dev.txt
 
 before_script:
@@ -77,13 +75,12 @@ before_script:
         brew services start kafka
         sleep 10
     else
-        sudo docker-compose -f scripts/kafka-docker-compose.yml up > kafka_zookeeper.log &
+        sudo docker-compose -f scripts/bitnami-kafka-docker-compose.yml up > kafka_zookeeper.log &
         sleep 20
     fi
 
 script:
-  - coverage run -m pytest  # Run the tests and check for test coverage.
-  - coverage report -m  # Generate test coverage report.
-  - codecov  # Upload the report to codecov.
+  - coverage run -m pytest
+  - coverage report -m
+  - codecov
   # - flake8 --max-line-length=115  # Enforce code style (but relax line length limit a bit).
-
