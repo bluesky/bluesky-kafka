@@ -19,6 +19,7 @@ logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 
 from bluesky_kafka import Publisher, RemoteDispatcher
 from bluesky.plans import count
+from event_model import sanitize_doc
 
 
 TEST_TOPIC = "bluesky-kafka-test"
@@ -149,17 +150,13 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
     dispatcher_proc.start()
     time.sleep(10)  # As above, give this plenty of time to start.
 
-    local_accumulator = []
+    local_published_documents = []
 
     def local_cb(name, doc):
         print("local_cb: {}".format(name))
-        local_accumulator.append((name, doc))
+        local_published_documents.append((name, doc))
 
-    # Check that numpy data is sanitized by putting some in the start doc.
-    # sending numpy arrays with md causes this:
-    #    assert remote_accumulator == local_accumulator
-    #    ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
-    # so the arrays are unpacked and compared explicitly
+    # test that numpy data is transmitted correctly
     md = {
         "numpy_data": {"nested": np.array([1, 2, 3])},
         "numpy_scalar": np.float64(3),
@@ -173,38 +170,21 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
     time.sleep(10)
 
     # Get the documents from the queue (or timeout --- test will fail)
-    remote_accumulator = []
-    for i in range(len(local_accumulator)):
-        remote_accumulator.append(queue_.get(timeout=2))
+    remote_published_documents = []
+    for i in range(len(local_published_documents)):
+        remote_published_documents.append(queue_.get(timeout=2))
 
     dispatcher_proc.terminate()
     dispatcher_proc.join()
 
-    print("local_accumulator:")
-    pprint.pprint(local_accumulator)
-    print("remote_accumulator:")
-    pprint.pprint(remote_accumulator)
+    # sanitize_doc normalizes some document data, such as numpy arrays, that are
+    # problematic for direct comparison of documents by "assert"
+    sanitized_local_published_documents = [sanitize_doc(doc) for doc in local_published_documents]
+    sanitized_remote_published_documents = [sanitize_doc(doc) for doc in remote_published_documents]
 
-    remote_np = remote_accumulator[0][1].pop("md")
-    local_np = local_accumulator[0][1].pop("md")
+    print("local_published_documents:")
+    pprint.pprint(local_published_documents)
+    print("remote_published_documents:")
+    pprint.pprint(remote_published_documents)
 
-    assert np.all(remote_np["numpy_data"]["nested"] == local_np["numpy_data"]["nested"])
-    assert np.all(remote_np["numpy_scalar"] == local_np["numpy_scalar"])
-    assert np.all(remote_np["numpy_array"] == local_np["numpy_array"])
-
-    # msgpack fails like this:
-    #     Full diff:
-    #     [
-    #         ('start',
-    #            {'detectors': ['det'],
-    #           - 'hints': {'dimensions': [[['time'], 'primary']]},
-    #           ?                          ^^      -           ^
-    #           + 'hints': {'dimensions': [(('time',), 'primary')]},
-    #           ?                          ^^       ++          ^
-    #     'md': {},
-    # so remove "hints" from the comparison between
-    # remote and local documents
-    remote_accumulator[0][1].pop("hints")
-    local_accumulator[0][1].pop("hints")
-
-    assert remote_accumulator == local_accumulator
+    assert sanitized_remote_published_documents == sanitized_local_published_documents
