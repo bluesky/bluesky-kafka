@@ -88,12 +88,12 @@ def test_bad_consumer_config():
         (
             partial(msgpack.dumps, default=mpn.encode),
             partial(msgpack.loads, object_hook=mpn.decode),
-            "earliest"
+            "earliest",
         ),
         (
-                partial(msgpack.dumps, default=mpn.encode),
-                partial(msgpack.loads, object_hook=mpn.decode),
-                "latest"
+            partial(msgpack.dumps, default=mpn.encode),
+            partial(msgpack.loads, object_hook=mpn.decode),
+            "latest",
         ),
     ],
 )
@@ -179,8 +179,12 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
 
     # sanitize_doc normalizes some document data, such as numpy arrays, that are
     # problematic for direct comparison of documents by "assert"
-    sanitized_local_published_documents = [sanitize_doc(doc) for doc in local_published_documents]
-    sanitized_remote_published_documents = [sanitize_doc(doc) for doc in remote_published_documents]
+    sanitized_local_published_documents = [
+        sanitize_doc(doc) for doc in local_published_documents
+    ]
+    sanitized_remote_published_documents = [
+        sanitize_doc(doc) for doc in remote_published_documents
+    ]
 
     print("local_published_documents:")
     pprint.pprint(local_published_documents)
