@@ -80,8 +80,7 @@ before_script:
     fi
 
 script:
-  - cd bluesky_kafka
-  - coverage run -m pytest --kafka-bootstrap-servers localhost:9092
+  - coverage run -m pytest
   - coverage report -m
   - codecov
   # - flake8 --max-line-length=115  # Enforce code style (but relax line length limit a bit).
