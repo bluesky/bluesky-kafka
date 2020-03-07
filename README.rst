@@ -28,7 +28,7 @@ Start a Kafka server:
 ::
 
   $ cd bluesky-kafka/scripts
-  $ sudo docker-compose -f kafka-docker-compose.yml up
+  $ sudo docker-compose -f bitnami-kafka-docker-compose.yml up
 
 Run tests:
 
