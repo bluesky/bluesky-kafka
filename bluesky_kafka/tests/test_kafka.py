@@ -22,6 +22,8 @@ from bluesky.plans import count
 from event_model import sanitize_doc
 
 
+# the Kafka test broker should be configured with
+# KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
 TEST_TOPIC = "bluesky-kafka-test"
 
 
@@ -101,6 +103,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
     # COMPONENT 1
     # a Kafka broker must be running
     # in addition the broker must have topic "bluesky-kafka-test"
+    # or be configured to create topics on demand
 
     # COMPONENT 2
     # Run a Publisher and a RunEngine in this process
