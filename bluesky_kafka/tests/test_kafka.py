@@ -170,8 +170,6 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
     RE.subscribe(local_cb)
     RE(count([hw.det]), md=md)
     time.sleep(10)
-    kafka_publisher.flush()
-    time.sleep(10)
 
     # Get the documents from the queue (or timeout --- test will fail)
     remote_published_documents = []
