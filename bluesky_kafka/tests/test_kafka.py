@@ -22,6 +22,8 @@ from bluesky.plans import count
 from event_model import sanitize_doc
 
 
+# the Kafka test broker should be configured with
+# KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
 TEST_TOPIC = "bluesky-kafka-test"
 
 
@@ -101,6 +103,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
     # COMPONENT 1
     # a Kafka broker must be running
     # in addition the broker must have topic "bluesky-kafka-test"
+    # or be configured to create topics on demand
 
     # COMPONENT 2
     # Run a Publisher and a RunEngine in this process
@@ -113,11 +116,11 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
             "acks": 1,
             "enable.idempotence": False,
             "request.timeout.ms": 5000,
+            "linger.ms": 1000,
         },
         serializer=serializer,
     )
     RE.subscribe(kafka_publisher)
-    time.sleep(10)
 
     # COMPONENT 3
     # Run a RemoteDispatcher on a separate process. Pass the documents
@@ -148,7 +151,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
         target=make_and_start_dispatcher, daemon=True, args=(queue_,)
     )
     dispatcher_proc.start()
-    time.sleep(10)  # As above, give this plenty of time to start.
+    time.sleep(10)
 
     local_published_documents = []
 
@@ -165,8 +168,6 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
 
     RE.subscribe(local_cb)
     RE(count([hw.det]), md=md)
-    time.sleep(10)
-    kafka_publisher.flush()
     time.sleep(10)
 
     # Get the documents from the queue (or timeout --- test will fail)
