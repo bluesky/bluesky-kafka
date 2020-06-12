@@ -116,6 +116,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
             "acks": 1,
             "enable.idempotence": False,
             "request.timeout.ms": 5000,
+            "linger.ms": 1000,
         },
         serializer=serializer,
     )
