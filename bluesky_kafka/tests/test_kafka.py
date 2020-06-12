@@ -121,7 +121,6 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
         serializer=serializer,
     )
     RE.subscribe(kafka_publisher)
-    time.sleep(10)
 
     # COMPONENT 3
     # Run a RemoteDispatcher on a separate process. Pass the documents
