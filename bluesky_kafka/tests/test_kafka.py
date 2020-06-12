@@ -152,7 +152,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
         target=make_and_start_dispatcher, daemon=True, args=(queue_,)
     )
     dispatcher_proc.start()
-    time.sleep(10)  # As above, give this plenty of time to start.
+    time.sleep(10)
 
     local_published_documents = []
 
