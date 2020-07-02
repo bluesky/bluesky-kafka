@@ -26,5 +26,5 @@ kafka_dispatcher = RemoteDispatcher(
     deserializer=kafka_deserializer,
 )
 
-kafka_dispatcher.subscribe(put_in_queue)
+kafka_dispatcher.subscribe(mongo_serializer)
 kafka_dispatcher.start()
