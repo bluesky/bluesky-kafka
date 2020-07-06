@@ -33,12 +33,12 @@ class LazyMongoRouter():
         self._serializers[topic] = serializer
         return serializer
 
-    def __call__(self, topic, message):
+    def __call__(self, topic, name, doc):
         try:
             serializer = self._serialzers[topic]
         except KeyError:
             serializer = self._get_serializer(topic)
-        return serializer(*message)
+        return serializer(name, doc)
 
 
 mongo_router = LazyMongoRouter(mongo_uri)
