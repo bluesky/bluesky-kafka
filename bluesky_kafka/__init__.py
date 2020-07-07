@@ -123,6 +123,14 @@ class Publisher:
         """
         Publish the specified name and document as a Kafka message.
 
+        Flush the Producer on every stop document. This guarantees
+        that _at the latest_ all documents for a run will be delivered
+        to the broker(s) at the end of the run. Without this flush
+        the documents for a short run may wait for some time to be
+        delivered. The flush call is blocking so it is a bad idea to
+        flush after every document but reasonable to flush after a
+        stop document since this is the end of the run.
+
         Parameters
         ----------
         name: str
@@ -144,11 +152,16 @@ class Publisher:
             value=self._serializer((name, doc)),
             callback=delivery_report,
         )
+        if name == "stop":
+            self.flush()
 
     def flush(self):
         """
         Flush all buffered messages to the broker(s).
         """
+        logger.debug(
+            "flushing Kafka Producer for topic % and key %s", self._topic, self._key
+        )
         self._producer.flush()
 
 
