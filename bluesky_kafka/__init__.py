@@ -308,26 +308,31 @@ class RemoteDispatcher(Dispatcher):
         self.closed = True
 
 
-class MongoConsumerPlugin(dict):
+class DynamicMongoConsumer(DynamicConsumer):
     """
     Like a defaultdict, but it makes a Serializer based on the
     key, which in this case is the topic name.
     """
+    class SerializerFactory(dict):
+        def __init__(self, args, kwargs, mongo_uri):
+            self._mongo_uri = mongo_uri
 
-    def __init__(self, mongo_uri):
-        self._mongo_uri = mongo_uri
+        def get_database(topic):
+            return topic.replace('.',',')
 
-    def get_database(topic):
-        return topic.replace('.',',')
+        def __missing__(self, topic):
+            result = self[topic] = Serializer(self._mongo_uri + '/' + database_name,
+                                              self._mongo_uri + "/" + database_name)
+            return result
 
-    def __missing__(self, topic):
-        result = self[topic] = Serializer(self._mongo_uri + '/' + database_name,
-                                          self._mongo_uri + "/" + database_name)
-        return result
+    def __init__(self, args, kwargs, mongo_uri):
+        self._serializers = SerializerFactory(mongo_uri)
+        return super().__init__(args, kwargs)
 
-    def post_process(self, topic, name, doc)
-        if name == 'stop':
-            del self[topic]
+    def process(self, topic, name, doc)
+        result_name, result_doc = self._serializers[topic](name, doc)
+        if result_name == 'stop':
+            del self._serializers[topic]
 
 
 
@@ -423,6 +428,9 @@ class DynamicConsumer:
         self._consumer.subscribe(topics=topics)
         self.closed = False
 
+    def process(self, topic, name, doc):
+        raise NotImplemented("DynamicConsumer is an abstract base class.")
+
     def _poll(self, work_during_wait):
         while True:
             msg = self._consumer.poll(self.polling_duration)
@@ -443,8 +451,7 @@ class DynamicConsumer:
                         name,
                         doc,
                     )
-                    result_name, result_doc = self._plugin[msg.topic()](DocumentNames[name], doc)
-                    self._plugin.post_process(msg.topic(), result_name, result_doc)
+                    self.process(msg.topic(), DocumentNames[name], doc)
                 except Exception as exc:
                     logger.exception(exc)
 
