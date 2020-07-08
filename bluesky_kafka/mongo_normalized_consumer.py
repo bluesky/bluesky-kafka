@@ -1,6 +1,6 @@
 import msgpack
 import os
-from bluesky_kafka import DynamicConsumer, MongoConsumerPlugin
+from bluesky_kafka import DynamicMongoConsumer
 from functools import partial
 
 
@@ -10,14 +10,11 @@ kafka_deserializer = partial(msgpack.loads, object_hook=mpn.decode)
 auto_offset_reset = "latest"  # "latest" should always work but has been failing on Linux, passing on OSX
 topics = ["^*.bluesky.documents"]
 
-
-plugin = MongoConsumerPlugin(mongo_uri)
-
-mongo_consumer = DynamicConsumer(
+mongo_consumer = DynamicMongoConsumer(
     topics=topics,
     bootstrap_servers=bootstrap_servers,
     group_id="kafka-unit-test-group-id",
-    plugin=plugin,
+    mongo_uri=mongo_uri,
     consumer_config={"auto.offset.reset": auto_offset_reset},
     polling_duration=1.0,
     deserializer=kafka_deserializer,

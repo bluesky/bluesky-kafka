@@ -308,33 +308,6 @@ class RemoteDispatcher(Dispatcher):
         self.closed = True
 
 
-class DynamicMongoConsumer(DynamicConsumer):
-    """
-    Like a defaultdict, but it makes a Serializer based on the
-    key, which in this case is the topic name.
-    """
-    class SerializerFactory(dict):
-        def __init__(self, args, kwargs, mongo_uri):
-            self._mongo_uri = mongo_uri
-
-        def get_database(topic):
-            return topic.replace('.',',')
-
-        def __missing__(self, topic):
-            result = self[topic] = Serializer(self._mongo_uri + '/' + database_name,
-                                              self._mongo_uri + "/" + database_name)
-            return result
-
-    def __init__(self, args, kwargs, mongo_uri):
-        self._serializers = SerializerFactory(mongo_uri)
-        return super().__init__(args, kwargs)
-
-    def process(self, topic, name, doc)
-        result_name, result_doc = self._serializers[topic](name, doc)
-        if result_name == 'stop':
-            del self._serializers[topic]
-
-
 
 class DynamicConsumer:
     """
@@ -478,3 +451,32 @@ class DynamicConsumer:
     def stop(self):
         self._consumer.close()
         self.closed = True
+
+
+class DynamicMongoConsumer(DynamicConsumer):
+    """
+    Like a defaultdict, but it makes a Serializer based on the
+    key, which in this case is the topic name.
+    """
+    class SerializerFactory(dict):
+        def __init__(self, args, kwargs, mongo_uri):
+            self._mongo_uri = mongo_uri
+
+        def get_database(topic):
+            return topic.replace('.',',')
+
+        def __missing__(self, topic):
+            result = self[topic] = Serializer(self._mongo_uri + '/' + get_database(topic),
+                                              self._mongo_uri + "/" + get_database(topic))
+            return result
+
+    def __init__(self, args, kwargs, mongo_uri):
+        self._serializers = SerializerFactory(mongo_uri)
+        return super().__init__(args, kwargs)
+
+    def process(self, topic, name, doc)
+        result_name, result_doc = self._serializers[topic](name, doc)
+        if result_name == 'stop':
+            del self._serializers[topic]
+
+
