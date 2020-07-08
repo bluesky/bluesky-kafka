@@ -260,23 +260,6 @@ class RemoteDispatcher(Dispatcher):
         self._consumer.subscribe(topics=topics)
         self.closed = False
 
-    def process(self, topic, name, doc):
-        """
-        Dispatch document ``doc`` of type ``name`` to the callback registry.
-        Parameters
-        ----------
-        name : {'start', 'descriptor', 'event', 'stop'}
-        doc : dict
-        """
-        exceptions = self.cb_registry.process(name, topic, name.name, doc)
-        for exc, traceback in exceptions:
-            warn("A %r was raised during the processing of a %s "
-                 "Document. The error will be ignored to avoid "
-                 "interrupting data collection. To investigate, "
-                 "set RunEngine.ignore_callback_exceptions = False "
-                 "and run again." % (exc, name.name))
-
-
     def _poll(self, work_during_wait):
         while True:
             msg = self._consumer.poll(self.polling_duration)
@@ -297,7 +280,7 @@ class RemoteDispatcher(Dispatcher):
                         name,
                         doc,
                     )
-                    self.process(msg.topic(), DocumentNames[name], doc)
+                    self.process(DocumentNames[name], doc)
                 except Exception as exc:
                     logger.exception(exc)
 
