@@ -449,7 +449,9 @@ class DynamicMongoConsumer:
                         name,
                         doc,
                     )
-                    self._serializers[msg.topic()](DocumentNames[name], doc)
+                    result_name, _ = self._serializers[msg.topic()](DocumentNames[name], doc)
+                    if result_name == 'stop':
+                        del self._serializers[msg.topic()]
                 except Exception as exc:
                     logger.exception(exc)
 
