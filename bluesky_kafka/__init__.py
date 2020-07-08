@@ -459,7 +459,7 @@ class DynamicMongoConsumer(DynamicConsumer):
     key, which in this case is the topic name.
     """
     class SerializerFactory(dict):
-        def __init__(self, args, kwargs, mongo_uri):
+        def __init__(self, mongo_uri):
             self._mongo_uri = mongo_uri
 
         def get_database(topic):
@@ -470,9 +470,9 @@ class DynamicMongoConsumer(DynamicConsumer):
                                               self._mongo_uri + "/" + get_database(topic))
             return result
 
-    def __init__(self, args, kwargs, mongo_uri):
+    def __init__(self, mongo_uri, *args, **kwargs):
         self._serializers = SerializerFactory(mongo_uri)
-        return super().__init__(args, kwargs)
+        return super().__init__(*args, **kwargs)
 
     def process(self, topic, name, doc)
         result_name, result_doc = self._serializers[topic](name, doc)
