@@ -343,8 +343,8 @@ class DynamicConsumer:
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
     group_id: str
         Required string identifier for Kafka Consumer group.
-    mongo_uri: str
-        Mongo database uri.
+    factory: dict
+        A dictionary that maps topic name to a function that takes (name, doc).
     consumer_config: dict
         Override default configuration or specify additional configuration
         options to confluent_kafka.Consumer.
