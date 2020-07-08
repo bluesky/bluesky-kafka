@@ -1,7 +1,9 @@
 import logging
 import pickle
 
+from collections import defaultdict
 from confluent_kafka import Consumer, Producer
+from suitcase.mongo_normalized import Serialzer
 
 from bluesky.run_engine import Dispatcher, DocumentNames
 
@@ -325,6 +327,19 @@ class RemoteDispatcher(Dispatcher):
 
 
 
+class MongoSerializerFactory(dict):
+
+    def __init__(self, mongo_uri):
+        self._mongo_uri = mongo_uri
+
+    def get_database(topic):
+        return topic.replace('.',',')
+
+    def __missing__(self, topic):
+        result = self[topic] = Serializer(self._mongo_uri + database_name,
+                                          self._mongo_uri + datamase_name)
+        return result
+
 class DynamicMongoConsumer:
     """
     Dispatch documents received over the network from a Kafka server.
@@ -378,8 +393,6 @@ class DynamicMongoConsumer:
         polling_duration=0.05,
         deserializer=pickle.loads,
     ):
-        super().__init__()
-
         self._topics = topics
         self._bootstrap_servers = bootstrap_servers
         self._group_id = group_id
@@ -414,6 +427,14 @@ class DynamicMongoConsumer:
         self._consumer = Consumer(self._consumer_config)
         self._consumer.subscribe(topics=topics)
         self.closed = False
+
+        def _get_serializer(self, topic):
+            database_name = topic.replace('.', '-')
+            serializer = Serializer(self._mongo_uri + database_name,
+                                self._mongo_uri + datamase_name)
+            self._serializers[topic] = serializer
+            return serializer
+
 
     def process(self, topic, name, doc):
         """
@@ -479,8 +500,3 @@ class DynamicMongoConsumer:
     def stop(self):
         self._consumer.close()
         self.closed = True
-
-
-
-class DynamicMongoConsumer:
-
