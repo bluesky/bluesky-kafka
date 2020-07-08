@@ -326,7 +326,6 @@ class RemoteDispatcher(Dispatcher):
         self.closed = True
 
 
-
 class MongoSerializerFactory(dict):
 
     def __init__(self, mongo_uri):
@@ -339,6 +338,7 @@ class MongoSerializerFactory(dict):
         result = self[topic] = Serializer(self._mongo_uri + database_name,
                                           self._mongo_uri + datamase_name)
         return result
+
 
 class DynamicMongoConsumer:
     """
@@ -399,6 +399,7 @@ class DynamicMongoConsumer:
         self.polling_duration = polling_duration
         self._deserializer = deserializer
         self._mongo_uri = mongo_uri
+        self,_serializers = MongoSerializerFactory(mongo_uri)
 
         self._consumer_config = dict()
         if consumer_config is not None:
@@ -428,31 +429,6 @@ class DynamicMongoConsumer:
         self._consumer.subscribe(topics=topics)
         self.closed = False
 
-        def _get_serializer(self, topic):
-            database_name = topic.replace('.', '-')
-            serializer = Serializer(self._mongo_uri + database_name,
-                                self._mongo_uri + datamase_name)
-            self._serializers[topic] = serializer
-            return serializer
-
-
-    def process(self, topic, name, doc):
-        """
-        Dispatch document ``doc`` of type ``name`` to the callback registry.
-        Parameters
-        ----------
-        name : {'start', 'descriptor', 'event', 'stop'}
-        doc : dict
-        """
-        exceptions = self.cb_registry.process(name, topic, name.name, doc)
-        for exc, traceback in exceptions:
-            warn("A %r was raised during the processing of a %s "
-                 "Document. The error will be ignored to avoid "
-                 "interrupting data collection. To investigate, "
-                 "set RunEngine.ignore_callback_exceptions = False "
-                 "and run again." % (exc, name.name))
-
-
     def _poll(self, work_during_wait):
         while True:
             msg = self._consumer.poll(self.polling_duration)
@@ -473,7 +449,7 @@ class DynamicMongoConsumer:
                         name,
                         doc,
                     )
-                    self.process(msg.topic(), DocumentNames[name], doc)
+                    self._serializers[msg.topic()](DocumentNames[name], doc)
                 except Exception as exc:
                     logger.exception(exc)
 
