@@ -326,9 +326,6 @@ class DynamicConsumer:
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
     group_id: str
         Required string identifier for Kafka Consumer group.
-    plugin: dict
-        A dictionary that maps topic name to a function that takes (name, doc)
-        and has a method called post_process.
     consumer_config: dict
         Override default configuration or specify additional configuration
         options to confluent_kafka.Consumer.
@@ -361,7 +358,6 @@ class DynamicConsumer:
         topics,
         bootstrap_servers,
         group_id,
-        plugin,
         consumer_config=None,
         polling_duration=0.05,
         deserializer=pickle.loads,
