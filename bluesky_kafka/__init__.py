@@ -325,6 +325,10 @@ class MongoSerializerFactory(dict):
                                           self._mongo_uri + "/" + database_name)
         return result
 
+    def post_process(self, topic, name, doc)
+        if name == 'stop':
+            del self[topic]
+
 
 class DynamicConsumer:
     """
@@ -441,7 +445,7 @@ class DynamicConsumer:
                         doc,
                     )
                     result_name, result_doc = self._factory[msg.topic()](DocumentNames[name], doc)
-                    self.post_process(msg.topic(), result_name, result_doc)
+                    self._factory.post_process(msg.topic(), result_name, result_doc)
                 except Exception as exc:
                     logger.exception(exc)
 
@@ -468,9 +472,3 @@ class DynamicConsumer:
     def stop(self):
         self._consumer.close()
         self.closed = True
-
-
-class DynamicConsumerWithCleanup(DynamicConsumer):
-    def post_process(self, topic, name, doc):
-        if name == 'stop':
-            del self._serializers[topic]
