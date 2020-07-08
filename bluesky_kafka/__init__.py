@@ -363,7 +363,7 @@ class DynamicConsumer:
     >>>         topics=["abc.def", "ghi.jkl"],
     >>>         bootstrap_servers='localhost:9092',
     >>>         group_id="xyz",
-    >>>         mongo_uri="mongodb://mongodb0.example.com:27017",
+    >>>         factory,
     >>>         consumer_config={
     >>>             "auto.offset.reset": "latest"
     >>>         }
@@ -470,7 +470,7 @@ class DynamicConsumer:
         self.closed = True
 
 
-class DynamicConsumerStopCleanup(DynamicConsumer):
+class DynamicConsumerWithCleanup(DynamicConsumer):
     def post_process(self, topic, name, doc):
         if name == 'stop':
             del self._serializers[topic]
