@@ -1,7 +1,6 @@
 import logging
 import pickle
 
-from collections import defaultdict
 from confluent_kafka import Consumer, Producer
 from suitcase.mongo_normalized import Serialzer
 
