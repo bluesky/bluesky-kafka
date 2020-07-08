@@ -1,4 +1,3 @@
-import cachetools
 import msgpack
 import os
 from bluesky_kafka import DynamicMongoConsumer
