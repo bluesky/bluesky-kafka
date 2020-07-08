@@ -311,7 +311,7 @@ class RemoteDispatcher(Dispatcher):
 
 class BlueskyConsumer:
     """
-    Dispatch documents received over the network from a Kafka server.
+    Process documents received over the network from a Kafka server.
 
     There is no default configuration. A reasonable configuration for production is
         consumer_config={
