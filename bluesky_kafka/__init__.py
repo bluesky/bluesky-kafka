@@ -309,7 +309,7 @@ class RemoteDispatcher(Dispatcher):
 
 
 
-class DynamicConsumer:
+class BlueskyConsumer:
     """
     Dispatch documents received over the network from a Kafka server.
 
@@ -449,12 +449,17 @@ class DynamicConsumer:
         self.closed = True
 
 
-class DynamicMongoConsumer(DynamicConsumer):
+class MongoBlueskyConsumer(BlueskyConsumer):
     """
-    Like a defaultdict, but it makes a Serializer based on the
-    key, which in this case is the topic name.
+    Subclass of DynamicConsumer that is specialized for inserting into a mongo
+    database determined by the topic name
     """
+
     class SerializerFactory(dict):
+        """
+        Like a defaultdict, but it makes a Serializer based on the
+        key, which in this case is the topic name.
+        """
         def __init__(self, mongo_uri):
             self._mongo_uri = mongo_uri
 
@@ -474,5 +479,3 @@ class DynamicMongoConsumer(DynamicConsumer):
         result_name, result_doc = self._serializers[topic](name, doc)
         if result_name == 'stop':
             del self._serializers[topic]
-
-
