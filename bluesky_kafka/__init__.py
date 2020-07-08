@@ -339,8 +339,8 @@ class MongoSerializerFactory(dict):
         return topic.replace('.',',')
 
     def __missing__(self, topic):
-        result = self[topic] = Serializer(self._mongo_uri + database_name,
-                                          self._mongo_uri + database_name)
+        result = self[topic] = Serializer(self._mongo_uri + '/' + database_name,
+                                          self._mongo_uri + "/" + database_name)
         return result
 
 
