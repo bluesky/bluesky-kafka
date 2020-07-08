@@ -336,7 +336,7 @@ class MongoSerializerFactory(dict):
 
     def __missing__(self, topic):
         result = self[topic] = Serializer(self._mongo_uri + database_name,
-                                          self._mongo_uri + datamase_name)
+                                          self._mongo_uri + database_name)
         return result
 
 
