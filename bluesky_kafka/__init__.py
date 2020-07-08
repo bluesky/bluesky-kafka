@@ -326,7 +326,7 @@ class MongoSerializerFactory(dict):
         return result
 
 
-class DynamicMongoConsumer:
+class DynamicConsumer:
     """
     Dispatch documents received over the network from a Kafka server.
 
@@ -377,7 +377,7 @@ class DynamicMongoConsumer:
         topics,
         bootstrap_servers,
         group_id,
-        mongo_uri,
+        factory,
         consumer_config=None,
         polling_duration=0.05,
         deserializer=pickle.loads,
@@ -387,8 +387,7 @@ class DynamicMongoConsumer:
         self._group_id = group_id
         self.polling_duration = polling_duration
         self._deserializer = deserializer
-        self._mongo_uri = mongo_uri
-        self,_serializers = MongoSerializerFactory(mongo_uri)
+        self._factory = factory
 
         self._consumer_config = dict()
         if consumer_config is not None:
@@ -418,6 +417,9 @@ class DynamicMongoConsumer:
         self._consumer.subscribe(topics=topics)
         self.closed = False
 
+    def post_process(self, topic, name, doc):
+        return
+
     def _poll(self, work_during_wait):
         while True:
             msg = self._consumer.poll(self.polling_duration)
@@ -438,9 +440,8 @@ class DynamicMongoConsumer:
                         name,
                         doc,
                     )
-                    result_name, _ = self._serializers[msg.topic()](DocumentNames[name], doc)
-                    if result_name == 'stop':
-                        del self._serializers[msg.topic()]
+                    result_name, result_doc = self._factory[msg.topic()](DocumentNames[name], doc)
+                    self.post_process(msg.topic(), result_name, result_doc)
                 except Exception as exc:
                     logger.exception(exc)
 
@@ -467,3 +468,9 @@ class DynamicMongoConsumer:
     def stop(self):
         self._consumer.close()
         self.closed = True
+
+
+class DynamicConsumerStopCleanup(DynamicConsumer):
+    def post_process(self, topic, name, doc):
+        if name == 'stop':
+            del self._serializers[topic]
