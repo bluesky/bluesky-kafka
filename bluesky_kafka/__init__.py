@@ -327,6 +327,10 @@ class RemoteDispatcher(Dispatcher):
 
 
 class MongoSerializerFactory(dict):
+    """
+    Like a defaultdict, but it makes a Serializer based on the
+    key, which in this case is the topic name.
+    """
 
     def __init__(self, mongo_uri):
         self._mongo_uri = mongo_uri
