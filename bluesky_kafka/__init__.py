@@ -367,7 +367,6 @@ class BlueskyConsumer:
         self._group_id = group_id
         self.polling_duration = polling_duration
         self._deserializer = deserializer
-        self._factory = factory
 
         self._consumer_config = dict()
         if consumer_config is not None:
