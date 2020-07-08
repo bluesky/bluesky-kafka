@@ -311,7 +311,7 @@ class RemoteDispatcher(Dispatcher):
 
 class BlueskyConsumer:
     """
-    Process documents received over the network from a Kafka server.
+    Process Bluesky documents received over the network from a Kafka server.
 
     There is no default configuration. A reasonable configuration for production is
         consumer_config={
@@ -449,7 +449,7 @@ class BlueskyConsumer:
 
 class MongoBlueskyConsumer(BlueskyConsumer):
     """
-    Subclass of DynamicConsumer that is specialized for inserting into a mongo
+    Subclass of BlueskyConsumer that is specialized for inserting into a mongo
     database determined by the topic name
     """
 
