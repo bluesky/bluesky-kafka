@@ -344,7 +344,6 @@ class BlueskyConsumer:
     >>>         topics=["abc.def", "ghi.jkl"],
     >>>         bootstrap_servers='localhost:9092',
     >>>         group_id="xyz",
-    >>>         factory,
     >>>         consumer_config={
     >>>             "auto.offset.reset": "latest"
     >>>         }
