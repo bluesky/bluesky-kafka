@@ -356,7 +356,9 @@ class DynamicMongoConsumer:
     bootstrap_servers : str
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
     group_id: str
-        Required string identifier for Kafka Consumer group
+        Required string identifier for Kafka Consumer group.
+    mongo_uri: str
+        Mongo database uri.
     consumer_config: dict
         Override default configuration or specify additional configuration
         options to confluent_kafka.Consumer.
@@ -375,6 +377,7 @@ class DynamicMongoConsumer:
     >>>         topics=["abc.def", "ghi.jkl"],
     >>>         bootstrap_servers='localhost:9092',
     >>>         group_id="xyz",
+    >>>         mongo_uri="mongodb://mongodb0.example.com:27017",
     >>>         consumer_config={
     >>>             "auto.offset.reset": "latest"
     >>>         }
