@@ -1,6 +1,6 @@
 import msgpack
 import os
-from bluesky_kafka import DynamicConsumer, MongoSerializerFactory
+from bluesky_kafka import DynamicConsumer, MongoConsumerPlugin
 from functools import partial
 
 
@@ -11,13 +11,13 @@ auto_offset_reset = "latest"  # "latest" should always work but has been failing
 topics = ["^*.bluesky.documents"]
 
 
-factory = MongoSerializerFactory(mongo_uri)
+plugin = MongoConsumerPlugin(mongo_uri)
 
 mongo_consumer = DynamicConsumer(
     topics=topics,
     bootstrap_servers=bootstrap_servers,
     group_id="kafka-unit-test-group-id",
-    factory=factory,
+    plugin=plugin,
     consumer_config={"auto.offset.reset": auto_offset_reset},
     polling_duration=1.0,
     deserializer=kafka_deserializer,
@@ -25,4 +25,3 @@ mongo_consumer = DynamicConsumer(
 
 
 mongo_consumer.start()
-

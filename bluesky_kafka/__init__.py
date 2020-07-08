@@ -308,7 +308,7 @@ class RemoteDispatcher(Dispatcher):
         self.closed = True
 
 
-class MongoSerializerFactory(dict):
+class MongoConsumerPlugin(dict):
     """
     Like a defaultdict, but it makes a Serializer based on the
     key, which in this case is the topic name.
@@ -330,6 +330,7 @@ class MongoSerializerFactory(dict):
             del self[topic]
 
 
+
 class DynamicConsumer:
     """
     Dispatch documents received over the network from a Kafka server.
@@ -347,8 +348,9 @@ class DynamicConsumer:
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
     group_id: str
         Required string identifier for Kafka Consumer group.
-    factory: dict
-        A dictionary that maps topic name to a function that takes (name, doc).
+    plugin: dict
+        A dictionary that maps topic name to a function that takes (name, doc)
+        and has a method called post_process.
     consumer_config: dict
         Override default configuration or specify additional configuration
         options to confluent_kafka.Consumer.
@@ -381,7 +383,7 @@ class DynamicConsumer:
         topics,
         bootstrap_servers,
         group_id,
-        factory,
+        plugin,
         consumer_config=None,
         polling_duration=0.05,
         deserializer=pickle.loads,
@@ -421,9 +423,6 @@ class DynamicConsumer:
         self._consumer.subscribe(topics=topics)
         self.closed = False
 
-    def post_process(self, topic, name, doc):
-        return
-
     def _poll(self, work_during_wait):
         while True:
             msg = self._consumer.poll(self.polling_duration)
@@ -444,8 +443,8 @@ class DynamicConsumer:
                         name,
                         doc,
                     )
-                    result_name, result_doc = self._factory[msg.topic()](DocumentNames[name], doc)
-                    self._factory.post_process(msg.topic(), result_name, result_doc)
+                    result_name, result_doc = self._plugin[msg.topic()](DocumentNames[name], doc)
+                    self._plugin.post_process(msg.topic(), result_name, result_doc)
                 except Exception as exc:
                     logger.exception(exc)
 
