@@ -360,12 +360,14 @@ class BlueskyConsumer:
         consumer_config=None,
         polling_duration=0.05,
         deserializer=pickle.loads,
+        process=None,
     ):
         self._topics = topics
         self._bootstrap_servers = bootstrap_servers
         self._group_id = group_id
-        self.polling_duration = polling_duration
         self._deserializer = deserializer
+        self._process = process
+        self.polling_duration = polling_duration
 
         self._consumer_config = dict()
         if consumer_config is not None:
@@ -395,8 +397,13 @@ class BlueskyConsumer:
         self._consumer.subscribe(topics=topics)
         self.closed = False
 
-    def process(self, topic, name, doc):
-        raise NotImplemented("DynamicConsumer is an abstract base class.")
+    def process(self, topic, name, doc, **kwargs):
+        if self._process is None:
+            raise NotImplemented("This class must either be subclassed to override the process "
+                                 "method, or have a process function passed in at init time "
+                                 "via the process kwarg.")
+        else:
+            return self._process(topic, name, doc)
 
     def _poll(self, work_during_wait):
         while True:
