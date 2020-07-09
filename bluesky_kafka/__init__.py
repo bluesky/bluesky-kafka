@@ -397,13 +397,24 @@ class BlueskyConsumer:
         self._consumer.subscribe(topics=topics)
         self.closed = False
 
-    def process(self, topic, name, doc, **kwargs):
+    def process_document(self, name, doc):
         if self._process is None:
             raise NotImplemented("This class must either be subclassed to override the process "
                                  "method, or have a process function passed in at init time "
                                  "via the process kwarg.")
         else:
-            return self._process(topic, name, doc)
+            return self._process(name, doc)
+
+    def process(self, msg):
+        name, doc = self._deserializer(msg.value())
+        logger.debug(
+            "RemoteDispatcher deserialized document with "
+            "topic %s for Kafka Consumer name: %s doc: %s",
+            msg.topic(),
+            name,
+            doc,
+        )
+        self.process_document(DocumentNames[name], doc)
 
     def _poll(self, work_during_wait):
         while True:
@@ -417,15 +428,7 @@ class BlueskyConsumer:
                 logger.error("Kafka Consumer error: %s", msg.error())
             else:
                 try:
-                    name, doc = self._deserializer(msg.value())
-                    logger.debug(
-                        "RemoteDispatcher deserialized document with "
-                        "topic %s for Kafka Consumer name: %s doc: %s",
-                        msg.topic(),
-                        name,
-                        doc,
-                    )
-                    self.process(msg.topic(), DocumentNames[name], doc)
+                    self.process(msg)
                 except Exception as exc:
                     logger.exception(exc)
 
