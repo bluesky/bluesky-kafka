@@ -1,3 +1,28 @@
+from functools import partial
+import logging
+import multiprocessing
+import pprint
+import time
+
+import numpy as np
+import pickle
+
+import msgpack
+import msgpack_numpy as mpn
+import pytest
+
+# this is recommended by msgpack-numpy as a way
+# to patch msgpack but it caused a utf-8 decode error
+# mpn.patch()
+
+logging.getLogger("bluesky.kafka").setLevel("DEBUG")
+
+from bluesky_kafka import Publisher, RemoteDispatcher
+from bluesky.plans import count
+from event_model import sanitize_doc
+
+
+
 @pytest.mark.parametrize(
     "serializer, deserializer, auto_offset_reset",
     [
@@ -61,10 +86,10 @@ def test_mongo_consumer(RE, hw, bootstrap_servers, serializer, deserializer, aut
         mongo_consumer.start()
 
     queue_ = multiprocessing.Queue()
-    dispatcher_proc = multiprocessing.Process(
+    consumer_proc = multiprocessing.Process(
         target=make_and_start_dispatcher, daemon=True, args=(queue_,)
     )
-    dispatcher_proc.start()
+    consumer_proc.start()
     time.sleep(10)
 
     local_published_documents = []
@@ -89,8 +114,8 @@ def test_mongo_consumer(RE, hw, bootstrap_servers, serializer, deserializer, aut
     for i in range(len(local_published_documents)):
         remote_published_documents.append(queue_.get(timeout=2))
 
-    dispatcher_proc.terminate()
-    dispatcher_proc.join()
+    consumer_proc.terminate()
+    consumer_proc.join()
 
     # sanitize_doc normalizes some document data, such as numpy arrays, that are
     # problematic for direct comparison of documents by "assert"
