@@ -397,13 +397,13 @@ class BlueskyConsumer:
         self._consumer.subscribe(topics=topics)
         self.closed = False
 
-    def process_document(self, name, doc):
+    def process_document(self, topic, name, doc):
         if self._process_document is None:
             raise NotImplemented("This class must either be subclassed to override the process "
                                  "method, or have a process function passed in at init time "
                                  "via the process kwarg.")
         else:
-            return self._process_document(name, doc)
+            return self._process_document(topic, name, doc)
 
     def process(self, msg):
         name, doc = self._deserializer(msg.value())
@@ -414,7 +414,7 @@ class BlueskyConsumer:
             name,
             doc,
         )
-        self.process_document(DocumentNames[name], doc)
+        self.process_document(msg.topic(), DocumentNames[name], doc)
 
     def _poll(self, work_during_wait):
         while True:
