@@ -41,6 +41,15 @@ from event_model import sanitize_doc
     ],
 )
 def test_mongo_consumer(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_reset):
+
+    # COMPONENT 0
+    # A mongo database
+    mongobox = pytest.importorskip('mongobox')
+    box = mongobox.MongoBox()
+    box.start()
+    client = box.client()
+    mongo_uri = f"mongodb://{client.address[0]}:{client.address[1]}/{TEST_TOPIC}"
+
     # COMPONENT 1
     # a Kafka broker must be running
     # in addition the broker must have topic "bluesky-kafka-test"
@@ -77,6 +86,7 @@ def test_mongo_consumer(RE, hw, bootstrap_servers, serializer, deserializer, aut
             topics=[TEST_TOPIC],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
+            mongo_uri=mongo_uri,
             # "latest" should always work but
             # has been failing on Linux, passing on OSX
             consumer_config={"auto.offset.reset": auto_offset_reset},
