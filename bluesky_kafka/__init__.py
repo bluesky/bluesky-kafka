@@ -399,7 +399,7 @@ class BlueskyConsumer:
 
     def process_document(self, topic, name, doc):
         if self._process_document is None:
-            raise NotImplemented("This class must either be subclassed to override the process "
+            raise NotImplemented("This class must either be subclassed to override the process_document "
                                  "method, or have a process function passed in at init time "
                                  "via the process kwarg.")
         else:
@@ -483,7 +483,7 @@ class MongoBlueskyConsumer(BlueskyConsumer):
         self._serializers = SerializerFactory(mongo_uri)
         return super().__init__(*args, **kwargs)
 
-    def process(self, topic, name, doc)
+    def process_document(self, topic, name, doc)
         result_name, result_doc = self._serializers[topic](name, doc)
         if result_name == 'stop':
             del self._serializers[topic]

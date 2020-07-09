@@ -1,8 +1,13 @@
-import pytest
-
-from bluesky.tests.conftest import RE
 import ophyd.sim
+import pytest
+import msgpack
+import msgpack_numpy as mpn
 
+from functools import partial
+from bluesky.tests.conftest import RE
+
+
+TEST_TOPIC = "bluesky-kafka-test"
 
 # get bootstrap server IP from command line
 def pytest_addoption(parser):
