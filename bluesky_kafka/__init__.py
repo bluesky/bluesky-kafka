@@ -360,13 +360,13 @@ class BlueskyConsumer:
         consumer_config=None,
         polling_duration=0.05,
         deserializer=pickle.loads,
-        process=None,
+        process_document=None,
     ):
         self._topics = topics
         self._bootstrap_servers = bootstrap_servers
         self._group_id = group_id
         self._deserializer = deserializer
-        self._process = process
+        self._process_document = process_document
         self.polling_duration = polling_duration
 
         self._consumer_config = dict()
@@ -398,12 +398,12 @@ class BlueskyConsumer:
         self.closed = False
 
     def process_document(self, name, doc):
-        if self._process is None:
+        if self._process_document is None:
             raise NotImplemented("This class must either be subclassed to override the process "
                                  "method, or have a process function passed in at init time "
                                  "via the process kwarg.")
         else:
-            return self._process(name, doc)
+            return self._process_document(name, doc)
 
     def process(self, msg):
         name, doc = self._deserializer(msg.value())
