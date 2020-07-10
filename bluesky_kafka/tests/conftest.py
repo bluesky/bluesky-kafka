@@ -28,3 +28,55 @@ def bootstrap_servers(request):
 @pytest.fixture(scope="function")
 def hw(request):
     return ophyd.sim.hw()
+
+
+@pytest.fixture(scope="module")
+def msgpack_serializer(request):
+
+
+@pytest.fixture(scope="module")
+def msgpack_deserializer(request):
+
+
+@pytest.fixture(scope="module")
+def publisher(request, bootstrap_servers, msgpack_serializer):
+    return Publisher(
+        topic=TEST_TOPIC,
+        bootstrap_servers=bootstrap_servers,
+        key="kafka-unit-test-key",
+        # work with a single broker
+        producer_config={
+            "acks": 1,
+            "enable.idempotence": False,
+            "request.timeout.ms": 5000,
+        },
+        serializer=msgpack_serializer,
+    )
+
+
+@pytest.fixture(scope="module")
+def mongo_client(request):
+    mongobox = pytest.importorskip('mongobox')
+    box = mongobox.MongoBox()
+    box.start()
+    return box.client()
+
+
+@pytest.fixture(scope="module")
+def mongo_uri(request, mongo_client):
+    return f"mongodb://{client.address[0]}:{client.address[1]}/{TEST_TOPIC}"
+
+
+@pytest.fixture(scope="module")
+def mongo_consumer(request, bootstrap_servers, msgpack_deserializer, mongo_client):
+    return MongoBlueskyConsumer(
+            topics=[TEST_TOPIC],
+            bootstrap_servers=bootstrap_servers,
+            group_id="kafka-unit-test-group-id",
+            mongo_uri=mongo_uri,
+            # "latest" should always work but
+            # has been failing on Linux, passing on OSX
+            consumer_config={"auto.offset.reset": auto_offset_reset},
+            polling_duration=1.0,
+            deserializer=msgpack_deserializer,
+        )
