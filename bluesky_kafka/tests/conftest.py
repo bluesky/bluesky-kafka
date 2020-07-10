@@ -5,7 +5,7 @@ import msgpack_numpy as mpn
 
 from functools import partial
 from bluesky.tests.conftest import RE
-
+from bluesky_kafka import Publisher, MongoBlueskyConsumer
 
 TEST_TOPIC = "bluesky-kafka-test"
 
@@ -39,7 +39,7 @@ def msgpack_deserializer(request):
 
 
 @pytest.fixture(scope="module")
-def publisher(request, bootstrap_servers, msgpack_serializer):
+def publisher(request, bootstrap_servers, msgpack_serializer, test):
     return Publisher(
         topic=TEST_TOPIC,
         bootstrap_servers=bootstrap_servers,
@@ -70,7 +70,7 @@ def mongo_uri(request, mongo_client):
 @pytest.fixture(scope="module")
 def mongo_consumer(request, bootstrap_servers, msgpack_deserializer, mongo_client):
     return MongoBlueskyConsumer(
-            topics=[TEST_TOPIC],
+            topics=["^*-test"],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
             mongo_uri=mongo_uri,
@@ -80,3 +80,9 @@ def mongo_consumer(request, bootstrap_servers, msgpack_deserializer, mongo_clien
             polling_duration=1.0,
             deserializer=msgpack_deserializer,
         )
+
+@pytest.fixture(scope="module")
+def md(request):
+    return {"numpy_data": {"nested": np.array([1, 2, 3])},
+            "numpy_scalar": np.float64(3),
+            "numpy_array": np.ones((3, 3))}
