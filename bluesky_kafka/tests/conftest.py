@@ -64,7 +64,7 @@ def mongo_client(request):
 
 @pytest.fixture(scope="module")
 def mongo_uri(request, mongo_client):
-    return f"mongodb://{client.address[0]}:{client.address[1]}/{TEST_TOPIC}"
+    return f"mongodb://{mongo_client.address[0]}:{mongo_client.address[1]}/{TEST_TOPIC}"
 
 
 @pytest.fixture(scope="module")

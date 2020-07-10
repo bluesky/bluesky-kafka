@@ -22,25 +22,23 @@ from bluesky.plans import count
 from event_model import sanitize_doc
 
 
+def test_mongo_consumer(RE, hw, publisher, mongo_consumer, mongo_client):
+    """
+    The structure of this test:
 
-@pytest.mark.parametrize(
-    "serializer, deserializer, auto_offset_reset",
-    [
-        (pickle.dumps, pickle.loads, "earliest"),
-        (pickle.dumps, pickle.loads, "latest"),
-        (
-            partial(msgpack.dumps, default=mpn.encode),
-            partial(msgpack.loads, object_hook=mpn.decode),
-            "earliest",
-        ),
-        (
-            partial(msgpack.dumps, default=mpn.encode),
-            partial(msgpack.loads, object_hook=mpn.decode),
-            "latest",
-        ),
-    ],
-)
-def test_mongo_consumer(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_reset):
+    The RunEngine (RE) generates documents.
+
+    The publisher is subscribed to the RunEngine, when it gets a document
+    it inserts it into the kafka topic TEST_TOPIC.
+
+    The mongo_consumer is subscribed to TEST_TOPIC, it gets the documents
+    from kafka and inserts them into a mongo database with a matching name.
+
+    The mongo client reads the documents from mongo.
+
+    The test then checks that the documents produced by the RunEngine
+    match the documents that are in mongo.
+    """
 
     # COMPONENT 0
     # A mongo database
@@ -75,13 +73,7 @@ def test_mongo_consumer(RE, hw, bootstrap_servers, serializer, deserializer, aut
     # Run a RemoteDispatcher on a separate process. Pass the documents
     # it receives over a Queue to this process so we can count them for our
     # test.
-
     def make_and_start_dispatcher(queue):
-        def put_in_queue(name, doc):
-            logger = logging.getLogger("bluesky.kafka")
-            logger.debug("putting %s in queue", name)
-            queue.put((name, doc))
-
         mongo_consumer = MongoBlueskyConsumer(
             topics=[TEST_TOPIC],
             bootstrap_servers=bootstrap_servers,
