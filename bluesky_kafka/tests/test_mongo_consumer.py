@@ -90,7 +90,7 @@ def xfail(difference, uid):
 # Vendored from https://github.com/NSLS-II/databroker-nsls2-tests/
 # We plan to move these methods to event_model.
 # Once we do that we should import them from there.
-def compare(a, b, beamline, remove_ok=False):
+def compare(a, b, label, remove_ok=False):
     """
     Check that there is no differences between Bluesky runs a and b.
     Setting remove_ok to True means that it is ok for a to have more
@@ -107,7 +107,7 @@ def compare(a, b, beamline, remove_ok=False):
     xfail(difference, run_a['uid'])
 
     if difference:
-        logger.info(beamline + " " + run_a['uid'] + " " +
+        logger.info(label + " " + run_a['uid'] + " " +
                     run_b['uid'] + " " + str(difference))
 
     assert not difference
@@ -132,45 +132,34 @@ def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
 
     This test needs a Kafka Broker with TEST_TOPIC and a Mongo database.
     """
-    doc_types = ['start', 'stop', 'descriptor', 'resource', 'event',
-                 'event_page', 'datum', 'datum_page']
-    original_uids = {key: set() for key in doc_types}
-    final_uids = {key:set() for key in doc_types}
 
-    def local_cb(name, doc):
-        print("local_cb: {}".format(name))
-        local_published_documents.append((name, doc))
+    original_documents = []
+
+    def record(name, doc):
+        origingal_documents.append((name, doc))
 
     def start_consumer():
         mongo_consumer.start()
 
+    # Subscribe the publisher to the run engine. This puts the RE documents into Kafka.
+    RE.subscribe(publisher)
+
+    # Also keep a copy of the produced documents to compare with later.
+    RE.subscribe(record)
+
+    # Create the consumer, that takes documents from Kafka, and puts them in mongo.
     consumer_proc = multiprocessing.Process(target=start_consumer, daemon=True)
     consumer_proc.start()
     time.sleep(10)
 
-    RE.subscribe(publisher)
-    RE.subscribe(local_cb)
-    RE(count([hw.det]), md=md)
+    # Run a plan to generate documents.
+    uid = RE(count([hw.det]), md=md)
+
+    # The documents should now be flowing from the RE to the mongo database, via Kafka.
     time.sleep(10)
 
+    # Get the documents from the mongo database.
+    mongo_documents = list(broker[uid].cannonical(fill='no'))
 
-    # May need a consumer join here.
-
-    # Get the documents from the mongo.
-
-
-    # sanitize_doc normalizes some document data, such as numpy arrays, that are
-    # problematic for direct comparison of documents by "assert"
-    sanitized_local_published_documents = [
-        sanitize_doc(doc) for doc in local_published_documents
-    ]
-    sanitized_remote_published_documents = [
-        sanitize_doc(doc) for doc in remote_published_documents
-    ]
-
-    print("local_published_documents:")
-    pprint.pprint(local_published_documents)
-    print("remote_published_documents:")
-    pprint.pprint(remote_published_documents)
-
-    assert sanitized_remote_published_documents == sanitized_local_published_documents
+    # Check that the original documents are the same as the documents in the mongo database.
+    compare(original_documents, mongo_documents, "mongo_consumer_test")
