@@ -2,7 +2,7 @@ import logging
 import pickle
 
 from confluent_kafka import Consumer, Producer
-from suitcase.mongo_normalized import Serialzer
+from suitcase.mongo_normalized import Serializer
 
 from bluesky.run_engine import Dispatcher, DocumentNames
 
@@ -480,10 +480,10 @@ class MongoBlueskyConsumer(BlueskyConsumer):
             return result
 
     def __init__(self, mongo_uri, *args, **kwargs):
-        self._serializers = SerializerFactory(mongo_uri)
+        self._serializers = self.SerializerFactory(mongo_uri)
         return super().__init__(*args, **kwargs)
 
-    def process_document(self, topic, name, doc)
+    def process_document(self, topic, name, doc):
         result_name, result_doc = self._serializers[topic](name, doc)
         if result_name == 'stop':
             del self._serializers[topic]

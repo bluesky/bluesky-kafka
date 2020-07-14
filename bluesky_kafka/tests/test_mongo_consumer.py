@@ -122,7 +122,7 @@ def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
     original_documents = []
 
     def record(name, doc):
-        origingal_documents.append((name, doc))
+        original_documents.append((name, doc))
 
     def start_consumer():
         mongo_consumer.start()

@@ -1,8 +1,12 @@
+import intake
 import msgpack
 import msgpack_numpy as mpn
+import numpy as np
 import ophyd.sim
+import os
 import pytest
 import tempfile
+import yaml
 
 from functools import partial
 from bluesky.tests.conftest import RE
@@ -37,16 +41,17 @@ def hw(request):
     return ophyd.sim.hw()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def msgpack_serializer(request):
+    return partial(msgpack.dumps, default=mpn.encode)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def msgpack_deserializer(request):
+    return partial(msgpack.loads, default=mpn.decode)
 
-
-@pytest.fixture(scope="module")
-def publisher(request, bootstrap_servers, msgpack_serializer, test):
+@pytest.fixture(scope="function")
+def publisher(request, bootstrap_servers, msgpack_serializer):
     return Publisher(
         topic=TEST_TOPIC,
         bootstrap_servers=bootstrap_servers,
@@ -61,7 +66,7 @@ def publisher(request, bootstrap_servers, msgpack_serializer, test):
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def mongo_client(request):
     mongobox = pytest.importorskip('mongobox')
     box = mongobox.MongoBox()
@@ -69,34 +74,34 @@ def mongo_client(request):
     return box.client()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def mongo_uri(request, mongo_client):
     return f"mongodb://{mongo_client.address[0]}:{mongo_client.address[1]}/{TEST_TOPIC}"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def mongo_consumer(request, bootstrap_servers, msgpack_deserializer, mongo_client):
     return MongoBlueskyConsumer(
-            topics=["^*-test"],
+            topics=[TEST_TOPIC],  # Need to replace this with regex.
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
             mongo_uri=mongo_uri,
             # "latest" should always work but
             # has been failing on Linux, passing on OSX
-            consumer_config={"auto.offset.reset": auto_offset_reset},
+            consumer_config={"auto.offset.reset": "latest"},
             polling_duration=1.0,
             deserializer=msgpack_deserializer,
         )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def md(request):
     return {"numpy_data": {"nested": np.array([1, 2, 3])},
             "numpy_scalar": np.float64(3),
             "numpy_array": np.ones((3, 3))}
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def broker(request, mongo_uri):
     fullname = os.path.join(TMP_DIR, YAML_FILENAME)
 
@@ -124,4 +129,4 @@ sources:
             return yaml.load(f, Loader=getattr(yaml, 'FullLoader', yaml.Loader))
 
     # Create a databroker with the catalog config file.
-    return from_config(load_config(fullname)).v2
+    return intake.open_catalog(fullname)
