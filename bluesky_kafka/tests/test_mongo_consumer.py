@@ -1,9 +1,8 @@
-import collections
 import event_model
 import logging
 import multiprocessing
-import numpy as np
 import os
+import pytest
 import pprint
 import time
 
@@ -13,6 +12,7 @@ from event_model import sanitize_doc
 from functools import partial
 
 logging.getLogger("bluesky.kafka").setLevel("DEBUG")
+
 
 # Vendored from https://github.com/NSLS-II/databroker-nsls2-tests/
 # We plan to move these methods to event_model.
@@ -113,7 +113,7 @@ def compare(a, b, beamline, remove_ok=False):
     assert not difference
 
 
-def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, mongo_client):
+def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
     """
     The structure of this test:
 
