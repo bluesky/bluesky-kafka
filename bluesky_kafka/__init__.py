@@ -476,7 +476,7 @@ class MongoBlueskyConsumer(BlueskyConsumer):
 
         def __missing__(self, topic):
             result = self[topic] = Serializer(self._mongo_uri + '/' + get_database(topic),
-                                              self._mongo_uri + "/" + get_database(topic))
+                                              self._mongo_uri + '/' + get_database(topic))
             return result
 
     def __init__(self, mongo_uri, *args, **kwargs):

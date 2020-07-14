@@ -115,22 +115,8 @@ def compare(a, b, label, remove_ok=False):
 
 def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
     """
-    The structure of this test:
-
-    The RunEngine (RE) generates documents.
-
-    The publisher is subscribed to the RunEngine, when it gets a document
-    it inserts it into the kafka topic TEST_TOPIC.
-
-    The mongo_consumer is subscribed to TEST_TOPIC, it gets the documents
-    from kafka and inserts them into a mongo database with a matching name.
-
-    The mongo client reads the documents from mongo.
-
-    The test then checks that the documents produced by the RunEngine
-    match the documents that are in mongo.
-
-    This test needs a Kafka Broker with TEST_TOPIC and a Mongo database.
+    Subscribe a MongoBlueskyConsumer to a kafka topic, and check that
+    documents published to this topic are inserted correctly in a mongo database.
     """
 
     original_documents = []
