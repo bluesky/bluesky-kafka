@@ -2,19 +2,17 @@ import event_model
 import json
 import logging
 import multiprocessing
-import os
 import pytest
-import pprint
 import time
 
-from bluesky_kafka import BlueskyConsumer, MongoBlueskyConsumer
+from bluesky_kafka import MongoBlueskyConsumer
 from bluesky.plans import count
 from dictdiffer import diff
 from event_model import sanitize_doc
-from functools import partial
 
 logger = logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 TEST_TOPIC = "bluesky-kafka-test"
+
 
 # Vendored from https://github.com/NSLS-II/databroker-nsls2-tests/
 # We plan to move these methods to event_model.
@@ -78,7 +76,7 @@ def xfail(difference, uid):
     for change_type, change, _ in difference:
         # For now it is ok if you get a resource that doesn't have a matching
         # run_start. This will be fixed by a database migration.
-        if (change_type == 'change' and change[0][0] == 'resource' and change[1] =='run_start'):
+        if (change_type == 'change' and change[0][0] == 'resource' and change[1] == 'run_start'):
             acceptable.append(True)
             reasons.append('DUPLICATE RESOURCE UID')
         elif uid in known_problems:
@@ -104,7 +102,7 @@ def compare(a, b, label, remove_ok=False):
     run_b = index(normalize(b))
 
     if remove_ok:
-        difference = [item for item in diff(run_a, run_b) if item[0]!='remove']
+        difference = [item for item in diff(run_a, run_b) if item[0] != 'remove']
     else:
         difference = list(diff(run_a, run_b))
 
@@ -129,15 +127,11 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     def record(name, doc):
         original_documents.append((name, doc))
 
-    #def start_consumer():
-    #    mongo_consumer.start()
-
     # Subscribe the publisher to the run engine. This puts the RE documents into Kafka.
     RE.subscribe(publisher)
 
     # Also keep a copy of the produced documents to compare with later.
     RE.subscribe(record)
-
 
     # Create the consumer, that takes documents from Kafka, and puts them in mongo.
     def make_and_start_dispatcher():
@@ -157,10 +151,6 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     dispatcher_proc = multiprocessing.Process(
         target=make_and_start_dispatcher, daemon=True)
     dispatcher_proc.start()
-
-
-    #consumer_proc = multiprocessing.Process(target=start_consumer, daemon=True)
-    #consumer_proc.start()
     time.sleep(10)
 
     # Run a plan to generate documents.
@@ -177,5 +167,6 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
                      for item in original_documents]
     compare(original_docs, mongo_documents, "mongo_consumer_test")
 
+    # Get rid of the process so that it doesn't continue to run after the test completes.
     dispatcher_proc.terminate()
     dispatcher_proc.join()

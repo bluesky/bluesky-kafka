@@ -1,4 +1,5 @@
 import msgpack
+import msgpack_numpy as mpn
 import os
 from bluesky_kafka import MongoBlueskyConsumer
 from functools import partial

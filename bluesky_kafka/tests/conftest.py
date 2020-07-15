@@ -8,10 +8,9 @@ import pytest
 import tempfile
 import yaml
 
-from functools import partial
 from bluesky.tests.conftest import RE
-from bluesky_kafka import Publisher, MongoBlueskyConsumer
-from databroker.v1 import from_config
+from bluesky_kafka import Publisher
+from functools import partial
 
 
 TEST_TOPIC = "bluesky-kafka-test"

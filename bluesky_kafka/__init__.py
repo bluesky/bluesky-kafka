@@ -397,9 +397,9 @@ class BlueskyConsumer:
 
     def process_document(self, topic, name, doc):
         if self._process_document is None:
-            raise NotImplemented("This class must either be subclassed to override the process_document "
-                                 "method, or have a process function passed in at init time "
-                                 "via the process kwarg.")
+            raise NotImplementedError("This class must either be subclassed to override the "
+                                      "process_document method, or have a process function passed "
+                                      "in at init time via the process kwarg.")
         else:
             return self._process_document(topic, name, doc)
 
@@ -469,11 +469,11 @@ class MongoBlueskyConsumer(BlueskyConsumer):
             self._mongo_uri = mongo_uri
 
         def get_database(self, topic):
-            return topic.replace('.',',')
+            return topic.replace('.', ',')
 
         def __missing__(self, topic):
             result = self[topic] = Serializer(self._mongo_uri + '/' + self.get_database(topic),
-                                             self._mongo_uri + '/' + self.get_database(topic))
+                                              self._mongo_uri + '/' + self.get_database(topic))
             return result
 
     def __init__(self, mongo_uri, *args, **kwargs):

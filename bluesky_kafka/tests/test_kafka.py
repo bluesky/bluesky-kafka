@@ -3,23 +3,21 @@ import logging
 import multiprocessing
 import pprint
 import time
-
 import numpy as np
 import pickle
-
 import msgpack
-import msgpack_numpy as mpn
-import pytest
-
 # this is recommended by msgpack-numpy as a way
 # to patch msgpack but it caused a utf-8 decode error
 # mpn.patch()
-
-logging.getLogger("bluesky.kafka").setLevel("DEBUG")
+import msgpack_numpy as mpn
+import pytest
 
 from bluesky_kafka import Publisher, RemoteDispatcher, BlueskyConsumer
 from bluesky.plans import count
 from event_model import sanitize_doc
+
+
+logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 
 
 # the Kafka test broker should be configured with
