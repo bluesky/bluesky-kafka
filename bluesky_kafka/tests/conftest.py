@@ -10,7 +10,7 @@ import yaml
 
 from functools import partial
 from bluesky.tests.conftest import RE
-from bluesky_kafka import Publisher, MongoBlueskyConsumer
+from bluesky_kafka import Publisher, BlueskyConsumer
 from databroker.v1 import from_config
 
 
@@ -50,6 +50,7 @@ def msgpack_serializer(request):
 def msgpack_deserializer(request):
     return partial(msgpack.loads, default=mpn.decode)
 
+
 @pytest.fixture(scope="function")
 def publisher(request, bootstrap_servers, msgpack_serializer):
     return Publisher(
@@ -63,6 +64,7 @@ def publisher(request, bootstrap_servers, msgpack_serializer):
             "request.timeout.ms": 5000,
         },
         serializer=msgpack_serializer,
+        flush_on_stop_doc=True,
     )
 
 
@@ -81,11 +83,11 @@ def mongo_uri(request, mongo_client):
 
 @pytest.fixture(scope="function")
 def mongo_consumer(request, bootstrap_servers, msgpack_deserializer, mongo_client):
-    return MongoBlueskyConsumer(
+    return BlueskyConsumer(
             topics=[TEST_TOPIC],  # Need to replace this with regex.
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
-            mongo_uri=mongo_uri,
+            #mongo_uri=mongo_uri,
             # "latest" should always work but
             # has been failing on Linux, passing on OSX
             consumer_config={"auto.offset.reset": "latest"},

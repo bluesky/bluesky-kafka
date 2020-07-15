@@ -134,7 +134,7 @@ def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
     RE.subscribe(record)
 
     # Create the consumer, that takes documents from Kafka, and puts them in mongo.
-    consumer_proc = multiprocessing.Process(target=start_consumer, daemon=True)
+    consumer_proc = multiprocessing.Process(target=start_consumer)
     consumer_proc.start()
     time.sleep(10)
 
@@ -143,6 +143,9 @@ def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
 
     # The documents should now be flowing from the RE to the mongo database, via Kafka.
     time.sleep(10)
+    print("###########", original_documents)
+    consumer_proc.terminate()
+    consumer_proc.join()
 
     # Get the documents from the mongo database.
     mongo_documents = list(broker[uid].cannonical(fill='no'))
