@@ -170,7 +170,6 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     time.sleep(10)
 
     # Get the documents from the mongo database.
-    print("BROKER", list(broker['xyz']))
     mongo_documents = list(broker['xyz'][uid].canonical(fill='no'))
 
     # Check that the original documents are the same as the documents in the mongo database.

@@ -82,24 +82,6 @@ def mongo_uri(request, mongo_client):
 
 
 @pytest.fixture(scope="function")
-def mongo_consumer(request, bootstrap_servers, msgpack_deserializer, mongo_client):
-    """
-    This fixture doesn't work correctly, I'm not sure why"
-    """
-    return MongoBlueskyConsumer(
-            topics=[TEST_TOPIC],  # Need to replace this with regex.
-            bootstrap_servers=bootstrap_servers,
-            group_id="kafka-unit-test-group-id",
-            mongo_uri=mongo_uri,
-            # "latest" should always work but
-            # has been failing on Linux, passing on OSX
-            consumer_config={"auto.offset.reset": "latest"},
-            polling_duration=1.0,
-            deserializer=msgpack_deserializer,
-        )
-
-
-@pytest.fixture(scope="function")
 def md(request):
     return {"numpy_data": {"nested": np.array([1, 2, 3])},
             "numpy_scalar": np.float64(3),

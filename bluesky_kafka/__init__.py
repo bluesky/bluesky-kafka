@@ -1,10 +1,9 @@
 import logging
 import pickle
 
+from bluesky.run_engine import Dispatcher, DocumentNames
 from confluent_kafka import Consumer, Producer
 from suitcase.mongo_normalized import Serializer
-
-from bluesky.run_engine import Dispatcher, DocumentNames
 
 from ._version import get_versions
 
@@ -308,7 +307,6 @@ class RemoteDispatcher(Dispatcher):
         self.closed = True
 
 
-
 class BlueskyConsumer:
     """
     Process Bluesky documents received over the network from a Kafka server.
@@ -406,7 +404,6 @@ class BlueskyConsumer:
             return self._process_document(topic, name, doc)
 
     def process(self, msg):
-        logger.debug("PROCESS")
         name, doc = self._deserializer(msg.value())
         logger.debug(
             "RemoteDispatcher deserialized document with "
@@ -423,7 +420,6 @@ class BlueskyConsumer:
             if msg is None:
                 # no message was delivered
                 # do some work before polling again
-                logger.debug("NO MESSAGE")
                 work_during_wait()
             elif msg.error():
                 logger.error("Kafka Consumer error: %s", msg.error())
@@ -485,8 +481,6 @@ class MongoBlueskyConsumer(BlueskyConsumer):
         return super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
-        print("PROCESS_MONGO_DOCUMENT", topic, name, doc)
         result_name, result_doc = self._serializers[topic](name, doc)
-        print("SERIALIZERS", result_name, result_doc)
         if result_name == 'stop':
             del self._serializers[topic]
