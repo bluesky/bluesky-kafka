@@ -48,7 +48,7 @@ def msgpack_serializer(request):
 
 @pytest.fixture(scope="function")
 def msgpack_deserializer(request):
-    return partial(msgpack.loads, default=mpn.decode)
+    return partial(msgpack.loads, object_hook=mpn.decode)
 
 
 @pytest.fixture(scope="function")
@@ -78,7 +78,7 @@ def mongo_client(request):
 
 @pytest.fixture(scope="function")
 def mongo_uri(request, mongo_client):
-    return f"mongodb://{mongo_client.address[0]}:{mongo_client.address[1]}/{TEST_TOPIC}"
+    return f"mongodb://{mongo_client.address[0]}:{mongo_client.address[1]}"
 
 
 @pytest.fixture(scope="function")

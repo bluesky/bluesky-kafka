@@ -406,7 +406,7 @@ class BlueskyConsumer:
             return self._process_document(topic, name, doc)
 
     def process(self, msg):
-        logger.debug("CCCCCCCCCCCCCCCCCCCCCCC")
+        logger.debug("PROCESS")
         name, doc = self._deserializer(msg.value())
         logger.debug(
             "RemoteDispatcher deserialized document with "
@@ -472,11 +472,12 @@ class MongoBlueskyConsumer(BlueskyConsumer):
         def __init__(self, mongo_uri):
             self._mongo_uri = mongo_uri
 
-        def get_database(topic):
+        def get_database(self, topic):
             return topic.replace('.',',')
 
         def __missing__(self, topic):
-            result = self[topic] = Serializer(self._mongo_uri, self._mongo_uri)
+            result = self[topic] = Serializer(self._mongo_uri + '/' + self.get_database(topic),
+                                             self._mongo_uri + '/' + self.get_database(topic))
             return result
 
     def __init__(self, mongo_uri, *args, **kwargs):
@@ -484,7 +485,7 @@ class MongoBlueskyConsumer(BlueskyConsumer):
         return super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
-        logger.debug("AAAAAAAAAAAAA", topic, name, doc)
+        logger.debug("PROCESS_MONGO_DOCUMENT", topic, name, doc)
         result_name, result_doc = self._serializers[topic](name, doc)
         if result_name == 'stop':
             del self._serializers[topic]

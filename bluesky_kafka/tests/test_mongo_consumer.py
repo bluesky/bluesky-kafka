@@ -6,6 +6,8 @@ import pytest
 import pprint
 import time
 
+from bluesky_kafka import BlueskyConsumer, MongoBlueskyConsumer
+TEST_TOPIC = "bluesky-kafka-test"
 from bluesky.plans import count
 from dictdiffer import diff
 from event_model import sanitize_doc
@@ -113,7 +115,8 @@ def compare(a, b, label, remove_ok=False):
     assert not difference
 
 
-def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
+def test_mongo_consumer(RE, hw, md, publisher, broker, mongo_uri, bootstrap_servers,
+                        msgpack_deserializer):
     """
     Subscribe a MongoBlueskyConsumer to a kafka topic, and check that
     documents published to this topic are inserted correctly in a mongo database.
@@ -124,8 +127,8 @@ def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
     def record(name, doc):
         original_documents.append((name, doc))
 
-    def start_consumer():
-        mongo_consumer.start()
+    #def start_consumer():
+    #    mongo_consumer.start()
 
     # Subscribe the publisher to the run engine. This puts the RE documents into Kafka.
     RE.subscribe(publisher)
@@ -133,9 +136,28 @@ def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
     # Also keep a copy of the produced documents to compare with later.
     RE.subscribe(record)
 
+    breakpoint()
     # Create the consumer, that takes documents from Kafka, and puts them in mongo.
-    consumer_proc = multiprocessing.Process(target=start_consumer)
-    consumer_proc.start()
+    def make_and_start_dispatcher():
+        kafka_dispatcher = MongoBlueskyConsumer(
+            topics=[TEST_TOPIC],
+            bootstrap_servers=bootstrap_servers,
+            group_id="kafka-unit-test-group-id",
+            # "latest" should always work but
+            # has been failing on Linux, passing on OSX
+            mongo_uri=mongo_uri,
+            consumer_config={"auto.offset.reset": "latest"},
+            polling_duration=1.0,
+            deserializer=msgpack_deserializer,
+        )
+        kafka_dispatcher.start()
+
+    dispatcher_proc = multiprocessing.Process(
+        target=make_and_start_dispatcher, daemon=True)
+    dispatcher_proc.start()
+
+    #consumer_proc = multiprocessing.Process(target=start_consumer, daemon=True)
+    #consumer_proc.start()
     time.sleep(10)
 
     # Run a plan to generate documents.
@@ -143,12 +165,12 @@ def test_mongo_consumer(RE, hw, md, publisher, mongo_consumer, broker):
 
     # The documents should now be flowing from the RE to the mongo database, via Kafka.
     time.sleep(10)
-    print("###########", original_documents)
-    consumer_proc.terminate()
-    consumer_proc.join()
 
     # Get the documents from the mongo database.
     mongo_documents = list(broker[uid].cannonical(fill='no'))
 
     # Check that the original documents are the same as the documents in the mongo database.
     compare(original_documents, mongo_documents, "mongo_consumer_test")
+
+    dispatcher_proc.terminate()
+    dispatcher_proc.join()
