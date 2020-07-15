@@ -7,14 +7,13 @@ import pprint
 import time
 
 from bluesky_kafka import BlueskyConsumer, MongoBlueskyConsumer
-TEST_TOPIC = "bluesky-kafka-test"
 from bluesky.plans import count
 from dictdiffer import diff
 from event_model import sanitize_doc
 from functools import partial
 
-logging.getLogger("bluesky.kafka").setLevel("DEBUG")
-
+logger = logging.getLogger("bluesky.kafka").setLevel("DEBUG")
+TEST_TOPIC = "bluesky-kafka-test"
 
 # Vendored from https://github.com/NSLS-II/databroker-nsls2-tests/
 # We plan to move these methods to event_model.
@@ -73,6 +72,8 @@ def xfail(difference, uid):
     """
     acceptable = []
     reasons = []
+    known_problems = {}
+
     for change_type, change, _ in difference:
         # For now it is ok if you get a resource that doesn't have a matching
         # run_start. This will be fixed by a database migration.
@@ -109,14 +110,14 @@ def compare(a, b, label, remove_ok=False):
     xfail(difference, run_a['uid'])
 
     if difference:
-        logger.info(label + " " + run_a['uid'] + " " +
-                    run_b['uid'] + " " + str(difference))
+        print(label + " " + run_a['uid'] + " " +
+              run_b['uid'] + " " + str(difference))
 
     assert not difference
 
 
-def test_mongo_consumer(RE, hw, md, publisher, broker, mongo_uri, bootstrap_servers,
-                        msgpack_deserializer):
+def test_mongo_consumer(RE, hw, md, publisher, broker,
+                        mongo_uri, bootstrap_servers, msgpack_deserializer):
     """
     Subscribe a MongoBlueskyConsumer to a kafka topic, and check that
     documents published to this topic are inserted correctly in a mongo database.
@@ -136,7 +137,7 @@ def test_mongo_consumer(RE, hw, md, publisher, broker, mongo_uri, bootstrap_serv
     # Also keep a copy of the produced documents to compare with later.
     RE.subscribe(record)
 
-    breakpoint()
+
     # Create the consumer, that takes documents from Kafka, and puts them in mongo.
     def make_and_start_dispatcher():
         kafka_dispatcher = MongoBlueskyConsumer(
@@ -156,6 +157,7 @@ def test_mongo_consumer(RE, hw, md, publisher, broker, mongo_uri, bootstrap_serv
         target=make_and_start_dispatcher, daemon=True)
     dispatcher_proc.start()
 
+
     #consumer_proc = multiprocessing.Process(target=start_consumer, daemon=True)
     #consumer_proc.start()
     time.sleep(10)
@@ -167,7 +169,8 @@ def test_mongo_consumer(RE, hw, md, publisher, broker, mongo_uri, bootstrap_serv
     time.sleep(10)
 
     # Get the documents from the mongo database.
-    mongo_documents = list(broker[uid].cannonical(fill='no'))
+    print("BROKER", list(broker['xyz']))
+    mongo_documents = list(broker['xyz'][uid].canonical(fill='no'))
 
     # Check that the original documents are the same as the documents in the mongo database.
     compare(original_documents, mongo_documents, "mongo_consumer_test")

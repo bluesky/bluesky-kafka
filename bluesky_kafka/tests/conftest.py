@@ -10,7 +10,7 @@ import yaml
 
 from functools import partial
 from bluesky.tests.conftest import RE
-from bluesky_kafka import Publisher, BlueskyConsumer
+from bluesky_kafka import Publisher, MongoBlueskyConsumer
 from databroker.v1 import from_config
 
 
@@ -83,11 +83,14 @@ def mongo_uri(request, mongo_client):
 
 @pytest.fixture(scope="function")
 def mongo_consumer(request, bootstrap_servers, msgpack_deserializer, mongo_client):
-    return BlueskyConsumer(
+    """
+    This fixture doesn't work correctly, I'm not sure why"
+    """
+    return MongoBlueskyConsumer(
             topics=[TEST_TOPIC],  # Need to replace this with regex.
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
-            #mongo_uri=mongo_uri,
+            mongo_uri=mongo_uri,
             # "latest" should always work but
             # has been failing on Linux, passing on OSX
             consumer_config={"auto.offset.reset": "latest"},
@@ -116,8 +119,8 @@ sources:
     driver: "bluesky-mongo-normalized-catalog"
     container: catalog
     args:
-      metadatastore_db: {mongo_uri}
-      asset_registry_db: {mongo_uri}
+      metadatastore_db: {mongo_uri}/{TEST_TOPIC}
+      asset_registry_db: {mongo_uri}/{TEST_TOPIC}
       handler_registry:
         NPY_SEQ: ophyd.sim.NumpySeqHandler
     metadata:
