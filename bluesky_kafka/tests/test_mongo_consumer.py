@@ -1,4 +1,5 @@
 import event_model
+import json
 import logging
 import multiprocessing
 import os
@@ -173,7 +174,9 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     mongo_documents = list(broker['xyz'][uid].canonical(fill='no'))
 
     # Check that the original documents are the same as the documents in the mongo database.
-    compare(original_documents, mongo_documents, "mongo_consumer_test")
+    original_docs = [json.loads(json.dumps(sanitize_doc(item)))
+                     for item in original_documents]
+    compare(original_docs, mongo_documents, "mongo_consumer_test")
 
     dispatcher_proc.terminate()
     dispatcher_proc.join()
