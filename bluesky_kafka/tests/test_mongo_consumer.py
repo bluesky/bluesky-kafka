@@ -136,6 +136,63 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     # Create the consumer, that takes documents from Kafka, and puts them in mongo.
     def make_and_start_dispatcher():
         kafka_dispatcher = MongoBlueskyConsumer(
+            topics=["^.*-kafka-test*"],
+            bootstrap_servers=bootstrap_servers,
+            group_id="kafka-unit-test-group-id",
+            # "latest" should always work but
+            # has been failing on Linux, passing on OSX
+            mongo_uri=mongo_uri,
+            consumer_config={"auto.offset.reset": "latest"},
+            polling_duration=1.0,
+            deserializer=msgpack_deserializer,
+        )
+        kafka_dispatcher.start()
+
+    dispatcher_proc = multiprocessing.Process(
+        target=make_and_start_dispatcher, daemon=True)
+    dispatcher_proc.start()
+    time.sleep(10)
+
+    # Run a plan to generate documents.
+    uid = RE(count([hw.det]), md=md)
+
+    # The documents should now be flowing from the RE to the mongo database, via Kafka.
+    time.sleep(10)
+
+    # Get the documents from the mongo database.
+    mongo_documents = list(broker['xyz'][uid].canonical(fill='no'))
+
+    # Check that the original documents are the same as the documents in the mongo database.
+    original_docs = [json.loads(json.dumps(sanitize_doc(item)))
+                     for item in original_documents]
+    compare(original_docs, mongo_documents, "mongo_consumer_test")
+
+    # Get rid of the process so that it doesn't continue to run after the test completes.
+    dispatcher_proc.terminate()
+    dispatcher_proc.join()
+
+'''
+def test_mongo_consumer_multi_topic(RE, hw, md, publisher, broker,
+                        mongo_uri, bootstrap_servers, msgpack_deserializer):
+    """
+    Subscribe a MongoBlueskyConsumer to multiple kafka topics, and check that
+    documents published to these topics are inserted to the correct mongo database.
+    """
+
+    original_documents = []
+
+    def record(name, doc):
+        original_documents.append((name, doc))
+
+    # Subscribe the publisher to the run engine. This puts the RE documents into Kafka.
+    RE.subscribe(publisher)
+
+    # Also keep a copy of the produced documents to compare with later.
+    RE.subscribe(record)
+
+    # Create the consumer, that takes documents from Kafka, and puts them in mongo.
+    def make_and_start_dispatcher():
+        kafka_dispatcher = MongoBlueskyConsumer(
             topics=[TEST_TOPIC],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
@@ -170,3 +227,4 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     # Get rid of the process so that it doesn't continue to run after the test completes.
     dispatcher_proc.terminate()
     dispatcher_proc.join()
+'''
