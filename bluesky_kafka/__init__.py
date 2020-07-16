@@ -481,6 +481,7 @@ class MongoBlueskyConsumer(BlueskyConsumer):
         return super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
+        print("PROCESS", topic, name, doc, self._serializers)
         result_name, result_doc = self._serializers[topic](name, doc)
         if result_name == 'stop':
             del self._serializers[topic]
