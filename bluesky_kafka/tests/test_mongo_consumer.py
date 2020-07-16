@@ -134,6 +134,7 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     RE.subscribe(record)
 
     # Create the consumer, that takes documents from Kafka, and puts them in mongo.
+    # For some reason this does not work as a fixture.
     def make_and_start_dispatcher():
         kafka_dispatcher = MongoBlueskyConsumer(
             topics=["^.*-kafka-test*"],
@@ -171,8 +172,8 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     dispatcher_proc.terminate()
     dispatcher_proc.join()
 
-'''
-def test_mongo_consumer_multi_topic(RE, hw, md, publisher, broker,
+
+def test_mongo_consumer_multi_topic(RE, hw, md, publisher, publisher2, broker,
                         mongo_uri, bootstrap_servers, msgpack_deserializer):
     """
     Subscribe a MongoBlueskyConsumer to multiple kafka topics, and check that
@@ -184,16 +185,20 @@ def test_mongo_consumer_multi_topic(RE, hw, md, publisher, broker,
     def record(name, doc):
         original_documents.append((name, doc))
 
-    # Subscribe the publisher to the run engine. This puts the RE documents into Kafka.
+    # Subscribe the two publishers to the run engine.
+    # This publishes the documents to two different Kafka topics.
     RE.subscribe(publisher)
+    RE.subscribe(publisher2)
 
     # Also keep a copy of the produced documents to compare with later.
     RE.subscribe(record)
 
     # Create the consumer, that takes documents from Kafka, and puts them in mongo.
+    # For some reason this does not work as a fixture.
+    # This consumer should read from both of the producers topics.
     def make_and_start_dispatcher():
         kafka_dispatcher = MongoBlueskyConsumer(
-            topics=[TEST_TOPIC],
+            topics=["^.*-kafka-test"],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
             # "latest" should always work but
@@ -217,14 +222,15 @@ def test_mongo_consumer_multi_topic(RE, hw, md, publisher, broker,
     time.sleep(10)
 
     # Get the documents from the mongo database.
-    mongo_documents = list(broker['xyz'][uid].canonical(fill='no'))
+    mongo_documents1 = list(broker['xyz'][uid].canonical(fill='no'))
+    mongo_documents2 = list(broker['xyz2'][uid].canonical(fill='no'))
 
     # Check that the original documents are the same as the documents in the mongo database.
     original_docs = [json.loads(json.dumps(sanitize_doc(item)))
                      for item in original_documents]
-    compare(original_docs, mongo_documents, "mongo_consumer_test")
+    compare(original_docs, mongo_documents1, "mongo_consumer_test1")
+    compare(original_docs, mongo_documents2, "mongo_consumer_test2")
 
     # Get rid of the process so that it doesn't continue to run after the test completes.
     dispatcher_proc.terminate()
     dispatcher_proc.join()
-'''
