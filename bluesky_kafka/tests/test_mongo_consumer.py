@@ -174,7 +174,7 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
 
 
 def test_mongo_consumer_multi_topic(RE, hw, md, publisher, publisher2, broker,
-                        mongo_uri, bootstrap_servers, msgpack_deserializer):
+                                    mongo_uri, bootstrap_servers, msgpack_deserializer):
     """
     Subscribe a MongoBlueskyConsumer to multiple kafka topics, and check that
     documents published to these topics are inserted to the correct mongo database.
