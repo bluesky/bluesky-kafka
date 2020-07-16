@@ -120,6 +120,11 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     """
     Subscribe a MongoBlueskyConsumer to a kafka topic, and check that
     documents published to this topic are inserted correctly in a mongo database.
+
+    If there is a problem with the Consumer running on the separate process. You may receive
+    a very unhelpful error message: "KeyError 421e977f-eec1-48f6-9288-fb03fc5342b9" To debug
+    try running pytest with the '-s' option. This should tell you what went wrong with the
+    Consumer.
     """
 
     original_documents = []
@@ -178,6 +183,11 @@ def test_mongo_consumer_multi_topic(RE, hw, md, publisher, publisher2, broker,
     """
     Subscribe a MongoBlueskyConsumer to multiple kafka topics, and check that
     documents published to these topics are inserted to the correct mongo database.
+
+    If there is a problem with the Consumer running on the separate process. You may receive
+    a very unhelpful error message: "KeyError 421e977f-eec1-48f6-9288-fb03fc5342b9" To debug
+    try running pytest with the '-s' option. This should tell you what went wrong with the
+    Consumer.
     """
 
     original_documents = []
