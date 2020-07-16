@@ -4,13 +4,16 @@ import os
 from bluesky_kafka import MongoBlueskyConsumer
 from functools import partial
 
-
 bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
 mongo_uri = os.environ.get("BLUESKY_MONGO_URI")
 kafka_deserializer = partial(msgpack.loads, object_hook=mpn.decode)
-auto_offset_reset = "latest"  # "latest" should always work but has been failing on Linux, passing on OSX
-topics = ["^*.bluesky.documents"]
+auto_offset_reset = "latest"
+topics = ["^.*bluesky.documents"]
 
+
+# Create a MongoBlueskyConsumer that will automatically listen to new beamline topics.
+# The parameter metadata.max.age.ms determines how often the consumer will check for
+# new topics. The default value is 5000ms.
 mongo_consumer = MongoBlueskyConsumer(
     topics=topics,
     bootstrap_servers=bootstrap_servers,
