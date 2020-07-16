@@ -14,6 +14,7 @@ from functools import partial
 
 
 TEST_TOPIC = "bluesky-kafka-test"
+TEST_TOPIC = "bluesky2-kafka-test"
 TMP_DIR = tempfile.mkdtemp()
 TEST_CATALOG_PATH = [TMP_DIR]
 YAML_FILENAME = 'intake_test_catalog.yml'
@@ -53,7 +54,24 @@ def msgpack_deserializer(request):
 @pytest.fixture(scope="function")
 def publisher(request, bootstrap_servers, msgpack_serializer):
     return Publisher(
-        topic=TEST_TOPIC,
+        topic=TEST_TOPIC2,
+        bootstrap_servers=bootstrap_servers,
+        key="kafka-unit-test-key",
+        # work with a single broker
+        producer_config={
+            "acks": 1,
+            "enable.idempotence": False,
+            "request.timeout.ms": 5000,
+        },
+        serializer=msgpack_serializer,
+        flush_on_stop_doc=True,
+    )
+
+
+@pytest.fixture(scope="function")
+def publisher2(request, bootstrap_servers, msgpack_serializer):
+    return Publisher(
+        topic=TEST_TOPIC2,
         bootstrap_servers=bootstrap_servers,
         key="kafka-unit-test-key",
         # work with a single broker
@@ -102,6 +120,17 @@ sources:
     args:
       metadatastore_db: {mongo_uri}/{TEST_TOPIC}
       asset_registry_db: {mongo_uri}/{TEST_TOPIC}
+      handler_registry:
+        NPY_SEQ: ophyd.sim.NumpySeqHandler
+    metadata:
+      beamline: "00-ID"
+  xyz2:
+    description: Some imaginary beamline
+    driver: "bluesky-mongo-normalized-catalog"
+    container: catalog
+    args:
+      metadatastore_db: {mongo_uri}/{TEST_TOPIC2}
+      asset_registry_db: {mongo_uri}/{TEST_TOPIC2}
       handler_registry:
         NPY_SEQ: ophyd.sim.NumpySeqHandler
     metadata:
