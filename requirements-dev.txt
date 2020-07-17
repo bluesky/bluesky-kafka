@@ -3,7 +3,7 @@ msgpack >=1.0.0
 msgpack-numpy
 codecov
 coverage
-databroker
+databroker >=1.0.6
 dictdiffer
 flake8
 pymongo
