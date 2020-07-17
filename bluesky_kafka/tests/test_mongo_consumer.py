@@ -160,7 +160,7 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     time.sleep(10)
 
     # Run a plan to generate documents.
-    uid = RE(count([hw.det]), md=md)
+    uid, = RE(count([hw.det]), md=md)
 
     # The documents should now be flowing from the RE to the mongo database, via Kafka.
     time.sleep(10)
@@ -226,7 +226,7 @@ def test_mongo_consumer_multi_topic(RE, hw, md, publisher, publisher2, broker,
     time.sleep(10)
 
     # Run a plan to generate documents.
-    uid = RE(count([hw.det]), md=md)
+    uid, = RE(count([hw.det]), md=md)
 
     # The documents should now be flowing from the RE to the mongo database, via Kafka.
     time.sleep(10)
