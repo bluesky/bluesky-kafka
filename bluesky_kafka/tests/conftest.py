@@ -1,12 +1,13 @@
+import os
+import yaml
+
 import intake
 import msgpack
 import msgpack_numpy as mpn
 import numpy as np
 import ophyd.sim
-import os
 import pytest
 import tempfile
-import yaml
 
 from bluesky.tests.conftest import RE
 from bluesky_kafka import Publisher
@@ -106,7 +107,7 @@ def md(request):
 
 
 @pytest.fixture(scope="function")
-def broker(request, mongo_uri):
+def data_broker(request, mongo_uri):
     fullname = os.path.join(TMP_DIR, YAML_FILENAME)
 
     # Write a catalog file.

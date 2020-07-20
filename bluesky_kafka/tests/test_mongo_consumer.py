@@ -1,4 +1,3 @@
-import event_model
 import json
 import logging
 import multiprocessing
@@ -8,7 +7,7 @@ import time
 from bluesky_kafka import MongoBlueskyConsumer
 from bluesky.plans import count
 from dictdiffer import diff
-from event_model import sanitize_doc
+import event_model
 
 logger = logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 TEST_TOPIC = "bluesky-kafka-test"
@@ -115,7 +114,7 @@ def compare(a, b, label, remove_ok=False):
     assert not difference
 
 
-def test_mongo_consumer(RE, hw, md, publisher, broker,
+def test_mongo_consumer(RE, hw, numpy_md, publisher, data_broker,
                         mongo_uri, bootstrap_servers, msgpack_deserializer):
     """
     Subscribe a MongoBlueskyConsumer to a kafka topic, and check that
@@ -160,16 +159,16 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     time.sleep(10)
 
     # Run a plan to generate documents.
-    uid, = RE(count([hw.det]), md=md)
+    uid, = RE(count([hw.det]), md=numpy_md)
 
     # The documents should now be flowing from the RE to the mongo database, via Kafka.
     time.sleep(10)
 
     # Get the documents from the mongo database.
-    mongo_documents = list(broker['xyz'][uid].canonical(fill='no'))
+    mongo_documents = list(data_broker['xyz'][uid].canonical(fill='no'))
 
     # Check that the original documents are the same as the documents in the mongo database.
-    original_docs = [json.loads(json.dumps(sanitize_doc(item)))
+    original_docs = [json.loads(json.dumps(even_model.sanitize_doc(item)))
                      for item in original_documents]
     compare(original_docs, mongo_documents, "mongo_consumer_test")
 
@@ -178,7 +177,7 @@ def test_mongo_consumer(RE, hw, md, publisher, broker,
     dispatcher_proc.join()
 
 
-def test_mongo_consumer_multi_topic(RE, hw, md, publisher, publisher2, broker,
+def test_mongo_consumer_multi_topic(RE, hw, numpy_md, publisher, publisher2, data_broker,
                                     mongo_uri, bootstrap_servers, msgpack_deserializer):
     """
     Subscribe a MongoBlueskyConsumer to multiple kafka topics, and check that
@@ -226,17 +225,17 @@ def test_mongo_consumer_multi_topic(RE, hw, md, publisher, publisher2, broker,
     time.sleep(10)
 
     # Run a plan to generate documents.
-    uid, = RE(count([hw.det]), md=md)
+    uid, = RE(count([hw.det]), md=numpy_md)
 
     # The documents should now be flowing from the RE to the mongo database, via Kafka.
     time.sleep(10)
 
     # Get the documents from the mongo database.
-    mongo_documents1 = list(broker['xyz'][uid].canonical(fill='no'))
-    mongo_documents2 = list(broker['xyz2'][uid].canonical(fill='no'))
+    mongo_documents1 = list(data_broker['xyz'][uid].canonical(fill='no'))
+    mongo_documents2 = list(data_broker['xyz2'][uid].canonical(fill='no'))
 
     # Check that the original documents are the same as the documents in the mongo database.
-    original_docs = [json.loads(json.dumps(sanitize_doc(item)))
+    original_docs = [json.loads(json.dumps(event_model.sanitize_doc(item)))
                      for item in original_documents]
     compare(original_docs, mongo_documents1, "mongo_consumer_test1")
     compare(original_docs, mongo_documents2, "mongo_consumer_test2")
