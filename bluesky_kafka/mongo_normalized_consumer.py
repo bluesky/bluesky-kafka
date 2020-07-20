@@ -1,8 +1,11 @@
+from functools import partial
+import os
+
 import msgpack
 import msgpack_numpy as mpn
-import os
+
 from bluesky_kafka import MongoBlueskyConsumer
-from functools import partial
+
 
 bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
 mongo_uri = os.environ.get("BLUESKY_MONGO_URI")

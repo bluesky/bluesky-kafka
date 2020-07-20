@@ -1,3 +1,4 @@
+from functools import partial
 import os
 import yaml
 
@@ -11,14 +12,9 @@ import tempfile
 
 from bluesky.tests.conftest import RE
 from bluesky_kafka import Publisher
-from functools import partial
-
 
 TEST_TOPIC = "bluesky-kafka-test"
 TEST_TOPIC2 = "bluesky2-kafka-test"
-TMP_DIR = tempfile.mkdtemp()
-TEST_CATALOG_PATH = [TMP_DIR]
-YAML_FILENAME = 'intake_test_catalog.yml'
 
 
 # get bootstrap server IP from command line
@@ -100,7 +96,7 @@ def mongo_uri(request, mongo_client):
 
 
 @pytest.fixture(scope="function")
-def md(request):
+def numpy_md(request):
     return {"numpy_data": {"nested": np.array([1, 2, 3])},
             "numpy_scalar": np.float64(3),
             "numpy_array": np.ones((3, 3))}
@@ -108,6 +104,10 @@ def md(request):
 
 @pytest.fixture(scope="function")
 def data_broker(request, mongo_uri):
+    TMP_DIR = tempfile.mkdtemp()
+    TEST_CATALOG_PATH = [TMP_DIR]
+    YAML_FILENAME = 'intake_test_catalog.yml'
+
     fullname = os.path.join(TMP_DIR, YAML_FILENAME)
 
     # Write a catalog file.
