@@ -168,7 +168,7 @@ def test_mongo_consumer(RE, hw, numpy_md, publisher, data_broker,
     mongo_documents = list(data_broker['xyz'][uid].canonical(fill='no'))
 
     # Check that the original documents are the same as the documents in the mongo database.
-    original_docs = [json.loads(json.dumps(even_model.sanitize_doc(item)))
+    original_docs = [json.loads(json.dumps(event_model.sanitize_doc(item)))
                      for item in original_documents]
     compare(original_docs, mongo_documents, "mongo_consumer_test")
 

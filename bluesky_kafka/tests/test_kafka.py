@@ -3,13 +3,14 @@ import logging
 import multiprocessing
 import pprint
 import time
-import numpy as np
-import pickle
+
 import msgpack
 # this is recommended by msgpack-numpy as a way
 # to patch msgpack but it caused a utf-8 decode error
 # mpn.patch()
 import msgpack_numpy as mpn
+import numpy as np
+import pickle
 import pytest
 
 from bluesky_kafka import Publisher, RemoteDispatcher, BlueskyConsumer

@@ -105,7 +105,6 @@ def numpy_md(request):
 @pytest.fixture(scope="function")
 def data_broker(request, mongo_uri):
     TMP_DIR = tempfile.mkdtemp()
-    TEST_CATALOG_PATH = [TMP_DIR]
     YAML_FILENAME = 'intake_test_catalog.yml'
 
     fullname = os.path.join(TMP_DIR, YAML_FILENAME)
