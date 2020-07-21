@@ -66,6 +66,7 @@ before_install:
 install:
   - pip install .
   - pip install -r requirements-dev.txt
+  - pip list
 
 before_script:
   - |
