@@ -420,7 +420,7 @@ class BlueskyConsumer:
             doc,
         )
         self.process_document(msg.topic(), name, doc)
-        if name == 'stop' and self._commit_on_stop_doc:
+        if name == 'stop':
             self.finalize_run(doc)
 
     def _poll(self, work_during_wait):
@@ -469,7 +469,8 @@ class BlueskyConsumer:
         logger.debug(
             "Run consumption complete:", stop_doc['run_start'], self._topics, self._group_id
         )
-        self.commit(asynchronous=False)
+        if self._commit_on_stop_doc:
+            self.commit(asynchronous=False)
 
 
 
