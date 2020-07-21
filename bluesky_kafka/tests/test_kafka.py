@@ -211,6 +211,7 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
     ],
 )
 def test_bluesky_consumer(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_reset):
+    print("START")
     # COMPONENT 1
     # a Kafka broker must be running
     # in addition the broker must have topic "bluesky-kafka-test"

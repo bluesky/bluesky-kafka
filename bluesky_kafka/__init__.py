@@ -154,6 +154,7 @@ class Publisher:
         self._producer.produce(
             topic=self._topic,
             key=self._key,
+
             value=self._serializer((name, doc)),
             callback=delivery_report,
         )
@@ -361,12 +362,14 @@ class BlueskyConsumer:
         polling_duration=0.05,
         deserializer=pickle.loads,
         process_document=None,
+        commit_on_stop_doc=True,
     ):
         self._topics = topics
         self._bootstrap_servers = bootstrap_servers
         self._group_id = group_id
         self._deserializer = deserializer
         self._process_document = process_document
+        self._commit_on_stop_doc = True
         self.polling_duration = polling_duration
 
         self._consumer_config = dict()
@@ -415,6 +418,8 @@ class BlueskyConsumer:
             doc,
         )
         self.process_document(msg.topic(), name, doc)
+        if name == 'stop' and self._commit_on_stop_doc:
+            self.finalize_run(doc)
 
     def _poll(self, work_during_wait):
         while True:
@@ -454,6 +459,16 @@ class BlueskyConsumer:
     def stop(self):
         self._consumer.close()
         self.closed = True
+
+    def finalize_run(self, stop_doc):
+        """
+        Finalize the consumption of the Run.
+        """
+        logger.debug(
+            "Run consumption complete:", stop_doc['run_start'], self._topics, self._group_id
+        )
+        self.commit(asynchronous=False)
+
 
 
 class MongoBlueskyConsumer(BlueskyConsumer):
