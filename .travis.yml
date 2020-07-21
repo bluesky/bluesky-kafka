@@ -4,6 +4,7 @@ sudo: false
 
 services:
   - docker
+  - mongodb
 
 env:
   global:
