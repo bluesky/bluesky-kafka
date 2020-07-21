@@ -52,6 +52,7 @@ before_install:
         rm -fv Miniconda*.sh
         popd
         export PATH=${HOME}/conda/bin:$PATH
+        export MPLBACKEND=agg
         conda create -n py${PYTHON} python=${PYTHON} -y
         source activate py${PYTHON}
         conda env list
