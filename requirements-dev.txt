@@ -13,5 +13,6 @@ ipython
 matplotlib
 mongobox
 numpydoc
+pyqt5
 sphinx-copybutton
 sphinx_rtd_theme
