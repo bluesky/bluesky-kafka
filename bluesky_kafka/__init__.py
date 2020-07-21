@@ -336,6 +336,8 @@ class BlueskyConsumer:
     process_document: function, optional
         A function that procceses received documents, this allows you to have custom document
         processing with out the need to make a subclass.
+    commit_on_stop_doc: bool, optional
+        Send a commit to the topic after a stop doc is processed.
 
     Example
     -------
