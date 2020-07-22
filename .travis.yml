@@ -73,8 +73,6 @@ before_script:
   - |
     if [ "$TRAVIS_OS_NAME" == "osx" ]; then
         brew cask install homebrew/cask-versions/adoptopenjdk8
-        brew tap mongodb/brew
-        brew install mongodb-community@4.2
         brew install kafka
         brew services start zookeeper
         brew services start kafka

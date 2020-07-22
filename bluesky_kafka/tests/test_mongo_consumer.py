@@ -3,6 +3,7 @@ import logging
 import multiprocessing
 import pytest
 import time
+import sys
 
 from bluesky_kafka import MongoBlueskyConsumer
 from bluesky.plans import count
@@ -113,7 +114,7 @@ def compare(a, b, label, remove_ok=False):
 
     assert not difference
 
-
+@pytest.mark.skipif(sys.platform != "linux", reason="this test only runs on linux")
 def test_mongo_consumer(RE, hw, numpy_md, publisher, data_broker,
                         mongo_uri, bootstrap_servers, msgpack_deserializer):
     """
@@ -177,6 +178,7 @@ def test_mongo_consumer(RE, hw, numpy_md, publisher, data_broker,
     dispatcher_proc.join()
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="this test only runs on linux")
 def test_mongo_consumer_multi_topic(RE, hw, numpy_md, publisher, publisher2, data_broker,
                                     mongo_uri, bootstrap_servers, msgpack_deserializer):
     """
