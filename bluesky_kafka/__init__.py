@@ -466,10 +466,10 @@ class BlueskyConsumer:
         """
         Finalize the consumption of the Run.
         """
-        logger.debug(
-            "Run consumption complete:", str(stop_doc['run_start']),
-            str(self._topics), str(self._group_id)
-        )
+        #logger.debug(
+        #    "Run consumption complete:", str(stop_doc['run_start']),
+        #    str(self._topics), str(self._group_id)
+        #)
         if self._commit_on_stop_doc:
             self.commit(asynchronous=False)
 
