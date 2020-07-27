@@ -503,5 +503,3 @@ class MongoConsumer(BlueskyConsumer):
 
     def process_document(self, topic, name, doc):
         result_name, result_doc = self._serializers[topic](name, doc)
-        if result_name == 'stop':
-            del self._serializers[topic]
