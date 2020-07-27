@@ -4,7 +4,7 @@ import os
 import msgpack
 import msgpack_numpy as mpn
 
-from bluesky_kafka import MongoBlueskyConsumer
+from bluesky_kafka import MongoConsumer
 
 
 bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
@@ -14,10 +14,10 @@ auto_offset_reset = "latest"
 topics = ["^.*bluesky.documents"]
 
 
-# Create a MongoBlueskyConsumer that will automatically listen to new beamline topics.
+# Create a MongoConsumer that will automatically listen to new beamline topics.
 # The parameter metadata.max.age.ms determines how often the consumer will check for
 # new topics. The default value is 5000ms.
-mongo_consumer = MongoBlueskyConsumer(
+mongo_consumer = MongoConsumer(
     topics=topics,
     bootstrap_servers=bootstrap_servers,
     group_id="kafka-unit-test-group-id",

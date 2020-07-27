@@ -475,7 +475,7 @@ class BlueskyConsumer:
 
 
 
-class MongoBlueskyConsumer(BlueskyConsumer):
+class MongoConsumer(BlueskyConsumer):
     """
     Subclass of BlueskyConsumer that is specialized for inserting into a mongo
     database determined by the topic name

@@ -5,7 +5,7 @@ import pytest
 import time
 import sys
 
-from bluesky_kafka import MongoBlueskyConsumer
+from bluesky_kafka import MongoConsumer
 from bluesky.plans import count
 from dictdiffer import diff
 import event_model
@@ -118,7 +118,7 @@ def compare(a, b, label, remove_ok=False):
 def test_mongo_consumer(RE, hw, numpy_md, publisher, data_broker,
                         mongo_uri, bootstrap_servers, msgpack_deserializer):
     """
-    Subscribe a MongoBlueskyConsumer to a kafka topic, and check that
+    Subscribe a MongoConsumer to a kafka topic, and check that
     documents published to this topic are inserted correctly in a mongo database.
 
     If there is a problem with the Consumer running on the separate process. You may receive
@@ -141,7 +141,7 @@ def test_mongo_consumer(RE, hw, numpy_md, publisher, data_broker,
     # Create the consumer, that takes documents from Kafka, and puts them in mongo.
     # For some reason this does not work as a fixture.
     def make_and_start_dispatcher():
-        kafka_dispatcher = MongoBlueskyConsumer(
+        kafka_dispatcher = MongoConsumer(
             topics=["^.*-kafka-test*"],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
@@ -182,7 +182,7 @@ def test_mongo_consumer(RE, hw, numpy_md, publisher, data_broker,
 def test_mongo_consumer_multi_topic(RE, hw, numpy_md, publisher, publisher2, data_broker,
                                     mongo_uri, bootstrap_servers, msgpack_deserializer):
     """
-    Subscribe a MongoBlueskyConsumer to multiple kafka topics, and check that
+    Subscribe a MongoConsumer to multiple kafka topics, and check that
     documents published to these topics are inserted to the correct mongo database.
 
     If there is a problem with the Consumer running on the separate process. You may receive
@@ -208,7 +208,7 @@ def test_mongo_consumer_multi_topic(RE, hw, numpy_md, publisher, publisher2, dat
     # For some reason this does not work as a fixture.
     # This consumer should read from both of the producers topics.
     def make_and_start_dispatcher():
-        kafka_dispatcher = MongoBlueskyConsumer(
+        kafka_dispatcher = MongoConsumer(
             topics=["^.*-kafka-test"],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
