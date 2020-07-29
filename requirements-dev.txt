@@ -3,11 +3,16 @@ msgpack >=1.0.0
 msgpack-numpy
 codecov
 coverage
+databroker >=1.0.6
+dictdiffer
 flake8
+pymongo
 pytest
 sphinx
 ipython
 matplotlib
+mongobox
 numpydoc
+pyqt5
 sphinx-copybutton
 sphinx_rtd_theme
