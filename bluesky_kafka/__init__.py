@@ -470,8 +470,8 @@ class BlueskyConsumer:
             f"Run consumption complete: {stop_doc['run_start']}, "
             f"{self._topics}, {self._group_id}"
         )
-        if self._commit_on_stop_doc:
-            self.commit(asynchronous=False)
+        #if self._commit_on_stop_doc:
+        #    self.commit(asynchronous=False)
 
 
 
@@ -502,4 +502,5 @@ class MongoConsumer(BlueskyConsumer):
         return super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
+        print(name, doc)
         result_name, result_doc = self._serializers[topic](name, doc)

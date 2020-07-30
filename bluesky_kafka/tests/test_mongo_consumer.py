@@ -11,7 +11,7 @@ from dictdiffer import diff
 import event_model
 
 logger = logging.getLogger("bluesky.kafka").setLevel("DEBUG")
-TEST_TOPIC = "bluesky-kafka-test"
+TEST_TOPIC = "garrett.bluesky.documents"
 
 
 # Vendored from https://github.com/NSLS-II/databroker-nsls2-tests/
@@ -142,7 +142,7 @@ def test_mongo_consumer(RE, hw, numpy_md, publisher, data_broker,
     # For some reason this does not work as a fixture.
     def make_and_start_dispatcher():
         kafka_dispatcher = MongoConsumer(
-            topics=["^.*-kafka-test*"],
+            topics=[TEST_TOPIC],
             bootstrap_servers=bootstrap_servers,
             group_id="kafka-unit-test-group-id",
             # "latest" should always work but

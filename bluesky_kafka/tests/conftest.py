@@ -13,7 +13,7 @@ import tempfile
 from bluesky.tests.conftest import RE
 from bluesky_kafka import Publisher
 
-TEST_TOPIC = "bluesky-kafka-test"
+TEST_TOPIC = "garrett.bluesky.documents"
 TEST_TOPIC2 = "bluesky2-kafka-test"
 
 

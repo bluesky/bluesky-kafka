@@ -11,8 +11,8 @@ bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
 mongo_uri = os.environ.get("BLUESKY_MONGO_URI")
 kafka_deserializer = partial(msgpack.loads, object_hook=mpn.decode)
 auto_offset_reset = "latest"
-topics = ["^.*bluesky.documents"]
-
+topics = ["garrett.bluesky.documents"]
+print(bootstrap_servers)
 
 # Create a MongoConsumer that will automatically listen to new beamline topics.
 # The parameter metadata.max.age.ms determines how often the consumer will check for
@@ -26,6 +26,6 @@ mongo_consumer = MongoConsumer(
     polling_duration=1.0,
     deserializer=kafka_deserializer,
 )
-
+print("init")
 
 mongo_consumer.start()
