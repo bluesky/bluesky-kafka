@@ -471,7 +471,7 @@ class BlueskyConsumer:
             f"{self._topics}, {self._group_id}"
         )
         if self._commit_on_stop_doc:
-            self.commit(asynchronous=False)
+            self._consumer.commit(asynchronous=False)
 
 
 
@@ -486,19 +486,20 @@ class MongoConsumer(BlueskyConsumer):
         Like a defaultdict, but it makes a Serializer based on the
         key, which in this case is the topic name.
         """
-        def __init__(self, mongo_uri):
+        def __init__(self, mongo_uri, auth_source):
             self._mongo_uri = mongo_uri
+            self._auth_source = auth_source
 
         def get_database(self, topic):
-            return topic.replace('.', ',')
+            return topic.replace('.', '-')
 
         def __missing__(self, topic):
-            result = self[topic] = Serializer(self._mongo_uri + '/' + self.get_database(topic),
-                                              self._mongo_uri + '/' + self.get_database(topic))
+            result = self[topic] = Serializer(self._mongo_uri + '/' + self.get_database(topic) + '?authSource=' + self._auth_source,
+                                              self._mongo_uri + '/' + self.get_database(topic) + '?authSource=' + self._auth_source)
             return result
 
-    def __init__(self, mongo_uri, *args, **kwargs):
-        self._serializers = self.SerializerFactory(mongo_uri)
+    def __init__(self, mongo_uri, auth_source='admin', *args, **kwargs):
+        self._serializers = self.SerializerFactory(mongo_uri, auth_source)
         return super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
