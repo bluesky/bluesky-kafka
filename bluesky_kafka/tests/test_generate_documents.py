@@ -1,7 +1,5 @@
 from functools import partial
 import logging
-import multiprocessing
-import pprint
 import time
 
 import msgpack
@@ -10,13 +8,10 @@ import msgpack
 # mpn.patch()
 import msgpack_numpy as mpn
 import numpy as np
-import pickle
 import pytest
 
 from bluesky_kafka import Publisher, RemoteDispatcher, BlueskyConsumer
 from bluesky.plans import count
-from event_model import sanitize_doc
-
 
 logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 
@@ -54,6 +49,7 @@ def test_kafka(RE, hw, serializer, deserializer, auto_offset_reset):
             "request.timeout.ms": 5000,
         },
         serializer=serializer,
+        flush_on_stop_doc=True
     )
     RE.subscribe(kafka_publisher)
 

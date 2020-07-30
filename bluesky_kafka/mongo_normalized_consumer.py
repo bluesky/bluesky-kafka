@@ -22,6 +22,7 @@ mongo_consumer = MongoConsumer(
     bootstrap_servers=bootstrap_servers,
     group_id="kafka-unit-test-group-id",
     mongo_uri=mongo_uri,
+    auth_source='admin',
     consumer_config={"auto.offset.reset": auto_offset_reset},
     polling_duration=1.0,
     deserializer=kafka_deserializer,
