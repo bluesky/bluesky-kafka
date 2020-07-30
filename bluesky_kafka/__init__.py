@@ -503,4 +503,5 @@ class MongoConsumer(BlueskyConsumer):
         return super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
+        print(name, doc)
         result_name, result_doc = self._serializers[topic](name, doc)

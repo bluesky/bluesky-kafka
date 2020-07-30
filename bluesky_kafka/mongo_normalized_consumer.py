@@ -27,5 +27,5 @@ mongo_consumer = MongoConsumer(
     deserializer=kafka_deserializer,
 )
 
-
+print("START")
 mongo_consumer.start()
