@@ -62,6 +62,8 @@ bootstrap_servers: comma-separated list of brokers.
   $ export BLUESKY_MONGO_URI="mongodb://username:password@machine1:port1,machine2:port2,machine3:port3
   $ export KAFKA_BOOTSTRAP_SERVERS="machine1:9092, machine2:9092, machine3:9092"
 
+Update the bluesky_kafka/supervisor/supervisord.conf file with the correct path for your installation.
+
 Start the consumer processes:
 
 ::
