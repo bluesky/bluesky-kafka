@@ -5,6 +5,7 @@ import pprint
 import time
 
 import msgpack
+
 # this is recommended by msgpack-numpy as a way
 # to patch msgpack but it caused a utf-8 decode error
 # mpn.patch()
@@ -210,7 +211,9 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
         ),
     ],
 )
-def test_bluesky_consumer(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_reset):
+def test_bluesky_consumer(
+    RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_reset
+):
     print("START")
     # COMPONENT 1
     # a Kafka broker must be running

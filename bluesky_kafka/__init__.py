@@ -154,7 +154,6 @@ class Publisher:
         self._producer.produce(
             topic=self._topic,
             key=self._key,
-
             value=self._serializer((name, doc)),
             callback=delivery_report,
         )
@@ -404,9 +403,11 @@ class BlueskyConsumer:
 
     def process_document(self, topic, name, doc):
         if self._process_document is None:
-            raise NotImplementedError("This class must either be subclassed to override the "
-                                      "process_document method, or have a process function passed "
-                                      "in at init time via the process kwarg.")
+            raise NotImplementedError(
+                "This class must either be subclassed to override the "
+                "process_document method, or have a process function passed "
+                "in at init time via the process kwarg."
+            )
         else:
             return self._process_document(topic, name, doc)
 
@@ -420,7 +421,7 @@ class BlueskyConsumer:
             doc,
         )
         self.process_document(msg.topic(), name, doc)
-        if name == 'stop':
+        if name == "stop":
             self.finalize_run(doc)
 
     def _poll(self, work_during_wait):
@@ -474,7 +475,6 @@ class BlueskyConsumer:
             self._consumer.commit(asynchronous=False)
 
 
-
 class MongoConsumer(BlueskyConsumer):
     """
     Subclass of BlueskyConsumer that is specialized for inserting into a mongo
@@ -486,19 +486,30 @@ class MongoConsumer(BlueskyConsumer):
         Like a defaultdict, but it makes a Serializer based on the
         key, which in this case is the topic name.
         """
+
         def __init__(self, mongo_uri, auth_source):
             self._mongo_uri = mongo_uri
             self._auth_source = auth_source
 
         def get_database(self, topic):
-            return topic.replace('.', '-')
+            return topic.replace(".", "-")
 
         def __missing__(self, topic):
-            result = self[topic] = Serializer(self._mongo_uri + '/' + self.get_database(topic) + '?authSource=' + self._auth_source,
-                                              self._mongo_uri + '/' + self.get_database(topic) + '?authSource=' + self._auth_source)
+            result = self[topic] = Serializer(
+                self._mongo_uri
+                + "/"
+                + self.get_database(topic)
+                + "?authSource="
+                + self._auth_source,
+                self._mongo_uri
+                + "/"
+                + self.get_database(topic)
+                + "?authSource="
+                + self._auth_source,
+            )
             return result
 
-    def __init__(self, mongo_uri, auth_source='admin', *args, **kwargs):
+    def __init__(self, mongo_uri, auth_source="admin", *args, **kwargs):
         self._serializers = self.SerializerFactory(mongo_uri, auth_source)
         return super().__init__(*args, **kwargs)
 

@@ -84,7 +84,7 @@ def publisher2(request, bootstrap_servers, msgpack_serializer):
 
 @pytest.fixture(scope="function")
 def mongo_client(request):
-    mongobox = pytest.importorskip('mongobox')
+    mongobox = pytest.importorskip("mongobox")
     box = mongobox.MongoBox()
     box.start()
     return box.client()
@@ -97,21 +97,24 @@ def mongo_uri(request, mongo_client):
 
 @pytest.fixture(scope="function")
 def numpy_md(request):
-    return {"numpy_data": {"nested": np.array([1, 2, 3])},
-            "numpy_scalar": np.float64(3),
-            "numpy_array": np.ones((3, 3))}
+    return {
+        "numpy_data": {"nested": np.array([1, 2, 3])},
+        "numpy_scalar": np.float64(3),
+        "numpy_array": np.ones((3, 3)),
+    }
 
 
 @pytest.fixture(scope="function")
 def data_broker(request, mongo_uri):
     TMP_DIR = tempfile.mkdtemp()
-    YAML_FILENAME = 'intake_test_catalog.yml'
+    YAML_FILENAME = "intake_test_catalog.yml"
 
     fullname = os.path.join(TMP_DIR, YAML_FILENAME)
 
     # Write a catalog file.
-    with open(fullname, 'w') as f:
-        f.write(f'''
+    with open(fullname, "w") as f:
+        f.write(
+            f"""
 sources:
   xyz:
     description: Some imaginary beamline
@@ -135,13 +138,14 @@ sources:
         NPY_SEQ: ophyd.sim.NumpySeqHandler
     metadata:
       beamline: "00-ID"
-                ''')
+                """
+        )
 
     def load_config(filename):
         package_directory = os.path.dirname(os.path.abspath(__file__))
         filename = os.path.join(package_directory, filename)
         with open(filename) as f:
-            return yaml.load(f, Loader=getattr(yaml, 'FullLoader', yaml.Loader))
+            return yaml.load(f, Loader=getattr(yaml, "FullLoader", yaml.Loader))
 
     # Create a databroker with the catalog config file.
     return intake.open_catalog(fullname)
