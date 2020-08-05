@@ -1,17 +1,14 @@
-from functools import partial
 import os
-import yaml
-
-import intake
-import msgpack
-import msgpack_numpy as mpn
-import numpy as np
-import ophyd.sim
-import pytest
 import tempfile
 
-from bluesky.tests.conftest import RE
+import intake
+import numpy as np
+import pytest
+import yaml
+
 from bluesky_kafka import Publisher
+from bluesky.tests.conftest import RE  # noqa
+from ophyd.tests.conftest import hw  # noqa
 
 TEST_TOPIC = "bluesky-kafka-test"
 TEST_TOPIC2 = "bluesky2-kafka-test"
@@ -34,22 +31,7 @@ def bootstrap_servers(request):
 
 
 @pytest.fixture(scope="function")
-def hw(request):
-    return ophyd.sim.hw()
-
-
-@pytest.fixture(scope="function")
-def msgpack_serializer(request):
-    return partial(msgpack.dumps, default=mpn.encode)
-
-
-@pytest.fixture(scope="function")
-def msgpack_deserializer(request):
-    return partial(msgpack.loads, object_hook=mpn.decode)
-
-
-@pytest.fixture(scope="function")
-def publisher(request, bootstrap_servers, msgpack_serializer):
+def publisher(request, bootstrap_servers):
     return Publisher(
         topic=TEST_TOPIC,
         bootstrap_servers=bootstrap_servers,
@@ -60,13 +42,12 @@ def publisher(request, bootstrap_servers, msgpack_serializer):
             "enable.idempotence": False,
             "request.timeout.ms": 5000,
         },
-        serializer=msgpack_serializer,
         flush_on_stop_doc=True,
     )
 
 
 @pytest.fixture(scope="function")
-def publisher2(request, bootstrap_servers, msgpack_serializer):
+def publisher2(request, bootstrap_servers):
     return Publisher(
         topic=TEST_TOPIC2,
         bootstrap_servers=bootstrap_servers,
@@ -77,7 +58,6 @@ def publisher2(request, bootstrap_servers, msgpack_serializer):
             "enable.idempotence": False,
             "request.timeout.ms": 5000,
         },
-        serializer=msgpack_serializer,
         flush_on_stop_doc=True,
     )
 
