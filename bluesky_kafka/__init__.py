@@ -1,5 +1,11 @@
+from functools import partial
 import logging
-import pickle
+
+import msgpack
+import msgpack_numpy as mpn
+# this is recommended by msgpack-numpy as a way
+# to patch msgpack but it caused a utf-8 decode error
+# mpn.patch()
 
 from bluesky.run_engine import Dispatcher, DocumentNames
 from confluent_kafka import Consumer, Producer
@@ -101,7 +107,7 @@ class Publisher:
         key,
         producer_config=None,
         flush_on_stop_doc=False,
-        serializer=pickle.dumps,
+        serializer=partial(msgpack.dumps, default=mpn.encode),
     ):
         self._topic = topic
         self._bootstrap_servers = bootstrap_servers
@@ -220,7 +226,7 @@ class RemoteDispatcher(Dispatcher):
         group_id,
         consumer_config=None,
         polling_duration=0.05,
-        deserializer=pickle.loads,
+        deserializer=partial(msgpack.loads, object_hook=mpn.decode),
     ):
         super().__init__()
 
@@ -361,7 +367,7 @@ class BlueskyConsumer:
         group_id,
         consumer_config=None,
         polling_duration=0.05,
-        deserializer=pickle.loads,
+        deserializer=partial(msgpack.loads, object_hook=mpn.decode),
         process_document=None,
         commit_on_stop_doc=True,
     ):
