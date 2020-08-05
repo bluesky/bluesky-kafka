@@ -2,14 +2,15 @@ from functools import partial
 import logging
 import multiprocessing
 import pprint
+import queue
 import time
 
 import msgpack
-
-# this is recommended by msgpack-numpy as a way
+import msgpack_numpy as mpn
+# mpn.patch() is recommended by msgpack-numpy as a way
 # to patch msgpack but it caused a utf-8 decode error
 # mpn.patch()
-import msgpack_numpy as mpn
+
 import numpy as np
 import pickle
 import pytest
@@ -152,11 +153,11 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
     dispatcher_proc.start()
     time.sleep(10)
 
-    local_published_documents = []
+    local_documents = []
 
     def local_cb(name, doc):
         print("local_cb: {}".format(name))
-        local_published_documents.append((name, doc))
+        local_documents.append((name, doc))
 
     # test that numpy data is transmitted correctly
     md = {
@@ -169,29 +170,34 @@ def test_kafka(RE, hw, bootstrap_servers, serializer, deserializer, auto_offset_
     RE(count([hw.det]), md=md)
     time.sleep(10)
 
-    # Get the documents from the queue (or timeout --- test will fail)
-    remote_published_documents = []
-    for i in range(len(local_published_documents)):
-        remote_published_documents.append(queue_.get(timeout=2))
+    # Get the documents from the inter-process queue (or timeout)
+    remote_documents = []
+    while True:
+        try:
+            name_, doc_ = queue_.get(timeout=1)
+            remote_documents.append((name_, doc_))
+        except queue.Empty:
+            print(f"read {len(remote_documents)} from the remote queue")
+            break
 
     dispatcher_proc.terminate()
     dispatcher_proc.join()
 
     # sanitize_doc normalizes some document data, such as numpy arrays, that are
     # problematic for direct comparison of documents by "assert"
-    sanitized_local_published_documents = [
-        sanitize_doc(doc) for doc in local_published_documents
+    sanitized_local_documents = [
+        sanitize_doc(doc) for doc in local_documents
     ]
-    sanitized_remote_published_documents = [
-        sanitize_doc(doc) for doc in remote_published_documents
+    sanitized_remote_documents = [
+        sanitize_doc(doc) for doc in remote_documents
     ]
 
-    print("local_published_documents:")
-    pprint.pprint(local_published_documents)
-    print("remote_published_documents:")
-    pprint.pprint(remote_published_documents)
+    print("local_documents:")
+    pprint.pprint(local_documents)
+    print("remote_documents:")
+    pprint.pprint(remote_documents)
 
-    assert sanitized_remote_published_documents == sanitized_local_published_documents
+    assert sanitized_remote_documents == sanitized_local_documents
 
 
 @pytest.mark.parametrize(
@@ -267,11 +273,11 @@ def test_bluesky_consumer(
     dispatcher_proc.start()
     time.sleep(10)
 
-    local_published_documents = []
+    local_documents = []
 
     def local_cb(name, doc):
         print("local_cb: {}".format(name))
-        local_published_documents.append((name, doc))
+        local_documents.append((name, doc))
 
     # test that numpy data is transmitted correctly
     md = {
@@ -284,26 +290,31 @@ def test_bluesky_consumer(
     RE(count([hw.det]), md=md)
     time.sleep(10)
 
-    # Get the documents from the queue (or timeout --- test will fail)
-    remote_published_documents = []
-    for i in range(len(local_published_documents)):
-        remote_published_documents.append(queue_.get(timeout=2))
+    # Get the documents from the inter-process queue (or timeout)
+    remote_documents = []
+    while True:
+        try:
+            name_, doc_ = queue_.get(timeout=1)
+            remote_documents.append((name_, doc_))
+        except queue.Empty:
+            print(f"read {len(remote_documents)} from the remote queue")
+            break
 
     dispatcher_proc.terminate()
     dispatcher_proc.join()
 
     # sanitize_doc normalizes some document data, such as numpy arrays, that are
     # problematic for direct comparison of documents by "assert"
-    sanitized_local_published_documents = [
-        sanitize_doc(doc) for doc in local_published_documents
+    sanitized_local_documents = [
+        sanitize_doc(doc) for doc in local_documents
     ]
-    sanitized_remote_published_documents = [
-        sanitize_doc(doc) for doc in remote_published_documents
+    sanitized_remote_documents = [
+        sanitize_doc(doc) for doc in remote_documents
     ]
 
-    print("local_published_documents:")
-    pprint.pprint(local_published_documents)
-    print("remote_published_documents:")
-    pprint.pprint(remote_published_documents)
+    print("local_documents:")
+    pprint.pprint(local_documents)
+    print("remote_documents:")
+    pprint.pprint(remote_documents)
 
-    assert sanitized_remote_published_documents == sanitized_local_published_documents
+    assert sanitized_remote_documents == sanitized_local_documents
