@@ -129,7 +129,7 @@ def test_mongo_consumer(
     publisher,
     data_broker,
     mongo_uri,
-    bootstrap_servers,
+    kafka_bootstrap_servers,
     msgpack_deserializer,
 ):
     """
@@ -158,7 +158,7 @@ def test_mongo_consumer(
     def make_and_start_dispatcher():
         kafka_dispatcher = MongoConsumer(
             topics=["^.*-kafka-test*"],
-            bootstrap_servers=bootstrap_servers,
+            bootstrap_servers=kafka_bootstrap_servers,
             group_id="kafka-unit-test-group-id",
             # "latest" should always work but
             # has been failing on Linux, passing on OSX
@@ -205,7 +205,7 @@ def test_mongo_consumer_multi_topic(
     publisher2,
     data_broker,
     mongo_uri,
-    bootstrap_servers,
+    kafka_bootstrap_servers,
     msgpack_deserializer,
 ):
     """
@@ -237,7 +237,7 @@ def test_mongo_consumer_multi_topic(
     def make_and_start_dispatcher():
         kafka_dispatcher = MongoConsumer(
             topics=["^.*-kafka-test"],
-            bootstrap_servers=bootstrap_servers,
+            bootstrap_servers=kafka_bootstrap_servers,
             group_id="kafka-unit-test-group-id",
             # "latest" should always work but
             # has been failing on Linux, passing on OSX
