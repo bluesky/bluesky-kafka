@@ -123,13 +123,7 @@ def compare(a, b, label, remove_ok=False):
 
 @pytest.mark.skipif(sys.platform != "linux", reason="this test only runs on linux")
 def test_mongo_consumer(
-    RE,
-    hw,
-    numpy_md,
-    publisher,
-    data_broker,
-    mongo_uri,
-    kafka_bootstrap_servers,
+    RE, hw, numpy_md, publisher, data_broker, mongo_uri, kafka_bootstrap_servers,
 ):
     """
     Subscribe a MongoConsumer to a kafka topic, and check that
