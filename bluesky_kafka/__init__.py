@@ -1,20 +1,21 @@
-from functools import partial
 import logging
+
+from confluent_kafka import Consumer, Producer
 
 import msgpack
 import msgpack_numpy as mpn
-# this is recommended by msgpack-numpy as a way
-# to patch msgpack but it caused a utf-8 decode error
-# mpn.patch()
 
 from bluesky.run_engine import Dispatcher, DocumentNames
-from confluent_kafka import Consumer, Producer
-from suitcase.mongo_normalized import Serializer
+from suitcase import mongo_normalized
 
 from ._version import get_versions
 
 __version__ = get_versions()["version"]
 del get_versions
+
+# this is the recommended way to modify the python msgpack
+# package to handle numpy arrays with msgpack_numpy
+mpn.patch()
 
 logger = logging.getLogger(name="bluesky.kafka")
 
