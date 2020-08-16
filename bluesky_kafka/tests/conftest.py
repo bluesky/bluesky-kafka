@@ -445,10 +445,10 @@ def get_all_documents_from_queue(document_queue):
 
 
 @pytest.fixture(scope="function")
-def publisher(request, bootstrap_servers):
+def publisher(request, kafka_bootstrap_servers):
     return Publisher(
         topic=TEST_TOPIC,
-        bootstrap_servers=bootstrap_servers,
+        bootstrap_servers=kafka_bootstrap_servers,
         key="kafka-unit-test-key",
         # work with a single broker
         producer_config={
@@ -461,10 +461,10 @@ def publisher(request, bootstrap_servers):
 
 
 @pytest.fixture(scope="function")
-def publisher2(request, bootstrap_servers):
+def publisher2(request, kafka_bootstrap_servers):
     return Publisher(
         topic=TEST_TOPIC2,
-        bootstrap_servers=bootstrap_servers,
+        bootstrap_servers=kafka_bootstrap_servers,
         key="kafka-unit-test-key",
         # work with a single broker
         producer_config={
