@@ -25,8 +25,9 @@ logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 
 
 def test_producer_config():
+    test_topic = "test.producer.config"
     kafka_publisher = Publisher(
-        topic=TEST_TOPIC,
+        topic=test_topic,
         bootstrap_servers="1.2.3.4:9092",
         key="kafka-unit-test-key",
         # work with a single broker
@@ -45,8 +46,9 @@ def test_producer_config():
 
 
 def test_consumer_config():
-    kafka_dispatcher = RemoteDispatcher(
-        topics=[TEST_TOPIC],
+    test_topic = "test.consumer.config"
+    bluesky_consumer = BlueskyConsumer(
+        topics=[test_topic],
         bootstrap_servers="1.2.3.4:9092",
         group_id="abc",
         consumer_config={
@@ -56,15 +58,16 @@ def test_consumer_config():
     )
 
     assert (
-        kafka_dispatcher._consumer_config["bootstrap.servers"]
+        bluesky_consumer._consumer_config["bootstrap.servers"]
         == "1.2.3.4:9092,5.6.7.8:9092"
     )
 
 
 def test_bad_consumer_config():
+    test_topic = "test.bad.consumer.config"
     with pytest.raises(ValueError) as excinfo:
-        kafka_dispatcher = RemoteDispatcher(
-            topics=[TEST_TOPIC],
+        BlueskyConsumer(
+            topics=[test_topic],
             bootstrap_servers="1.2.3.4:9092",
             group_id="abc",
             consumer_config={
