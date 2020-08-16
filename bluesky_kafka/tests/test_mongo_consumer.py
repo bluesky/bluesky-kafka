@@ -275,3 +275,134 @@ def test_mongo_consumer_multi_topic(
     # Get rid of the process so that it doesn't continue to run after the test completes.
     dispatcher_proc.terminate()
     dispatcher_proc.join()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="this test only runs on linux")
+def test_mongo_consumer__new_fixtures(
+    RE,
+    hw,
+    numpy_md,
+    publisher,
+    data_broker,
+    mongo_uri,
+    consumer_process_factory,
+    external_process_document_queue,
+):
+    """
+    Subscribe a MongoConsumer to a kafka topic, and check that
+    documents published to this topic are inserted correctly in a mongo database.
+
+    If there is a problem with the Consumer running on the separate process. You may receive
+    a very unhelpful error message: "KeyError 421e977f-eec1-48f6-9288-fb03fc5342b9" To debug
+    try running pytest with the '-s' option. This should tell you what went wrong with the
+    Consumer.
+    """
+
+    original_documents = []
+
+    def record(name, doc):
+        original_documents.append((name, doc))
+
+    # Subscribe the publisher to the run engine. This puts the RE documents into Kafka.
+    RE.subscribe(publisher)
+
+    # Also keep a copy of the produced documents to compare with later.
+    RE.subscribe(record)
+
+    # Create the consumer, that takes documents from Kafka, and puts them in mongo.
+    # For some reason this does not work as a fixture.
+    with external_process_document_queue(
+        topics=["^.*-kafka-test*"],
+        group_id="kafka-unit-test-group-id",
+        consumer_config={"auto.offset.reset": "latest"},
+        process_factory=consumer_process_factory,
+        consumer_factory=MongoConsumer,
+        # the next two arguments will be passed to MongoConsumer() as **kwargs
+        polling_duration=1.0,
+        mongo_uri=mongo_uri,
+    ) as document_queue:  # noqa
+
+        # Run a plan to generate documents.
+        (uid,) = RE(count([hw.det]), md=numpy_md)
+
+        # The documents should now be flowing from the RE to the mongo database, via Kafka.
+        time.sleep(10)
+
+        # Get the documents from the mongo database.
+        mongo_documents = list(data_broker["xyz"][uid].canonical(fill="no"))
+
+        # Check that the original documents are the same as the documents in the mongo database.
+        original_docs = [
+            json.loads(json.dumps(event_model.sanitize_doc(item)))
+            for item in original_documents
+        ]
+        compare(original_docs, mongo_documents, "mongo_consumer_test")
+
+
+@pytest.mark.xfail(reason="does not work correctly on Travis CI")
+def test_mongo_consumer_multi_topic__new_fixtures(
+    RE,
+    hw,
+    numpy_md,
+    publisher,
+    publisher2,
+    data_broker,
+    mongo_uri,
+    consumer_process_factory,
+    external_process_document_queue,
+):
+    """
+    Subscribe a MongoConsumer to multiple kafka topics, and check that
+    documents published to these topics are inserted to the correct mongo database.
+
+    If there is a problem with the Consumer running on the separate process. You may receive
+    a very unhelpful error message: "KeyError 421e977f-eec1-48f6-9288-fb03fc5342b9" To debug
+    try running pytest with the '-s' option. This should tell you what went wrong with the
+    Consumer.
+    """
+
+    original_documents = []
+
+    def record(name, doc):
+        original_documents.append((name, doc))
+
+    # Subscribe the two publishers to the run engine.
+    # This publishes the documents to two different Kafka topics.
+    RE.subscribe(publisher)
+    RE.subscribe(publisher2)
+
+    # Also keep a copy of the produced documents to compare with later.
+    RE.subscribe(record)
+
+    # Create the consumer, that takes documents from Kafka, and puts them in mongo.
+    # For some reason this does not work as a fixture.
+    # This consumer should read from both of the producers topics.
+    with external_process_document_queue(
+        topics=["^.*-kafka-test*"],
+        group_id="kafka-unit-test-group-id",
+        consumer_config={"auto.offset.reset": "latest"},
+        process_factory=partial(
+            consumer_process_factory, consumer_factory=MongoConsumer
+        ),
+        # the next two arguments will be passed to MongoConsumer() as **kwargs
+        polling_duration=1.0,
+        mongo_uri=mongo_uri,
+    ) as document_queue:  # noqa
+
+        # Run a plan to generate documents.
+        (uid,) = RE(count([hw.det]), md=numpy_md)
+
+        # The documents should now be flowing from the RE to the mongo database, via Kafka.
+        time.sleep(10)
+
+        # Get the documents from the mongo database.
+        mongo_documents1 = list(data_broker["xyz"][uid].canonical(fill="no"))
+        mongo_documents2 = list(data_broker["xyz2"][uid].canonical(fill="no"))
+
+        # Check that the original documents are the same as the documents in the mongo database.
+        original_docs = [
+            json.loads(json.dumps(event_model.sanitize_doc(item)))
+            for item in original_documents
+        ]
+        compare(original_docs, mongo_documents1, "mongo_consumer_test1")
+        compare(original_docs, mongo_documents2, "mongo_consumer_test2")
