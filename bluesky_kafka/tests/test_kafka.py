@@ -84,7 +84,7 @@ def test_bad_consumer_config():
 
 @pytest.mark.parametrize(
     "serializer, deserializer",
-    [(pickle.dumps, pickle.loads), (msgpack.dumps, msgpack.loads,)],
+    [(pickle.dumps, pickle.loads), (msgpack.dumps, msgpack.loads)],
 )
 def test_kafka_remote_dispatcher(
     RE,
@@ -114,7 +114,9 @@ def test_kafka_remote_dispatcher(
         # Set up a RunEngine in this process that will
         # send all documents to a bluesky_kafka.Publisher
         # and accumulate all documents in the local_documents list
-        kafka_publisher = publisher_factory(topic=test_topic, serializer=serializer)
+        kafka_publisher = publisher_factory(
+            topic=test_topic, serializer=serializer, flush_on_stop_doc=True
+        )
         RE.subscribe(kafka_publisher)
 
         local_documents = []
@@ -182,7 +184,9 @@ def test_bluesky_consumer(
         # Set up a RunEngine in this process that will
         # send all documents to a bluesky_kafka.Publisher
         # and accumulate all documents in the local_documents list
-        kafka_publisher = publisher_factory(topic=test_topic, serializer=serializer)
+        kafka_publisher = publisher_factory(
+            topic=test_topic, serializer=serializer, flush_on_stop_doc=True
+        )
         RE.subscribe(kafka_publisher)
 
         local_documents = []
