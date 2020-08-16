@@ -20,17 +20,17 @@ mpn.patch()
 logger = logging.getLogger(name="bluesky.kafka")
 
 
-def delivery_report(err, msg):
+def default_delivery_report(err, msg):
     """
     Called once for each message produced to indicate delivery result.
     Triggered by poll() or flush().
 
     Parameters
     ----------
-    err
-    msg
-
+    err : str
+    msg : Kafka message without headers
     """
+
     if err is not None:
         logger.error("message delivery failed: %s", err)
     else:
