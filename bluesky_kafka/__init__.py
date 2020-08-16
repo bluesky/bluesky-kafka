@@ -555,7 +555,7 @@ class MongoConsumer(BlueskyConsumer):
             return topic.replace(".", "-")
 
         def __missing__(self, topic):
-            result = self[topic] = Serializer(
+            result = self[topic] = mongo_normalized.Serializer(
                 self._mongo_uri
                 + "/"
                 + self.get_database(topic)
@@ -571,7 +571,11 @@ class MongoConsumer(BlueskyConsumer):
 
     def __init__(self, mongo_uri, auth_source="admin", *args, **kwargs):
         self._serializers = self.SerializerFactory(mongo_uri, auth_source)
-        return super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
-    def process_document(self, topic, name, doc):
+    def process_document(self, consumer, topic, name, doc):
         result_name, result_doc = self._serializers[topic](name, doc)
+        if name == "stop":
+            consumer.commit(asynchronous=False)
+
+        return True
