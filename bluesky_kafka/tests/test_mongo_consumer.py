@@ -130,7 +130,6 @@ def test_mongo_consumer(
     data_broker,
     mongo_uri,
     kafka_bootstrap_servers,
-    msgpack_deserializer,
 ):
     """
     Subscribe a MongoConsumer to a kafka topic, and check that
@@ -165,7 +164,6 @@ def test_mongo_consumer(
             mongo_uri=mongo_uri,
             consumer_config={"auto.offset.reset": "latest"},
             polling_duration=1.0,
-            deserializer=msgpack_deserializer,
         )
         kafka_dispatcher.start()
 
@@ -206,7 +204,6 @@ def test_mongo_consumer_multi_topic(
     data_broker,
     mongo_uri,
     kafka_bootstrap_servers,
-    msgpack_deserializer,
 ):
     """
     Subscribe a MongoConsumer to multiple kafka topics, and check that
@@ -244,7 +241,6 @@ def test_mongo_consumer_multi_topic(
             mongo_uri=mongo_uri,
             consumer_config={"auto.offset.reset": "latest"},
             polling_duration=1.0,
-            deserializer=msgpack_deserializer,
         )
         kafka_dispatcher.start()
 
