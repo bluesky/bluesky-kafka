@@ -1,16 +1,19 @@
+from functools import partial
 import json
 import logging
 import multiprocessing
-import pytest
 import time
 import sys
 
+from dictdiffer import diff
+import pytest
+
 from bluesky_kafka import MongoConsumer
 from bluesky.plans import count
-from dictdiffer import diff
 import event_model
 
-logger = logging.getLogger("bluesky.kafka").setLevel("DEBUG")
+
+logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 TEST_TOPIC = "bluesky-kafka-test"
 
 
