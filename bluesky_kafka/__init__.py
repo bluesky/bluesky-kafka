@@ -251,12 +251,9 @@ class BlueskyConsumer:
         deserializer=msgpack.loads,
         process_document=None,
     ):
-        super().__init__()
-
         self._topics = topics
         self._bootstrap_servers = bootstrap_servers
         self._group_id = group_id
-        self.polling_duration = polling_duration
         self._deserializer = deserializer
         self._process_document = process_document
         self.polling_duration = polling_duration
