@@ -18,8 +18,10 @@ TEST_TOPIC = "bluesky-kafka-test"
 TEST_TOPIC2 = "bluesky2-kafka-test"
 
 
-# get bootstrap server IP from command line
 def pytest_addoption(parser):
+    """
+    Add `--kafka-bootstrap-servers` to the pytest command line parser.
+    """
     parser.addoption(
         "--kafka-bootstrap-servers",
         action="store",
