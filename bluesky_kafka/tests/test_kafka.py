@@ -1,24 +1,21 @@
 from functools import partial
 import logging
-import multiprocessing
-import pprint
-import queue
-import time
 
 import msgpack
 import msgpack_numpy as mpn
-# mpn.patch() is recommended by msgpack-numpy as a way
-# to patch msgpack but it caused a utf-8 decode error
-# mpn.patch()
 
 import numpy as np
 import pickle
 import pytest
 
-from bluesky_kafka import Publisher, RemoteDispatcher, BlueskyConsumer
+from bluesky_kafka import Publisher, BlueskyConsumer
+from bluesky_kafka.tests.conftest import get_all_documents_from_queue
 from bluesky.plans import count
 from event_model import sanitize_doc
 
+# mpn.patch() is recommended by msgpack-numpy as a way
+# to patch msgpack but it caused a utf-8 decode error
+mpn.patch()
 
 logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 
