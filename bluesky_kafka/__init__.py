@@ -43,7 +43,9 @@ def default_delivery_report(err, msg):
 
 class Publisher:
     """
-    A callback that publishes documents to a Kafka server.
+    A class for publishing bluesky documents to a Kafka broker.
+
+    The intention is that Publisher objects be subscribed to a RunEngine.
 
     Reference: https://github.com/confluentinc/confluent-kafka-python/issues/137
 
@@ -72,25 +74,27 @@ class Publisher:
 
     Parameters
     ----------
-    topic: str
+    topic : str
         Topic to which all messages will be published.
     bootstrap_servers: str
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``.
-    key: str
+    key : str
         Kafka "key" string. Specify a key to maintain message order. If None is specified
         no ordering will be imposed on messages.
-    producer_config: dict, optional
+    producer_config : dict, optional
         Dictionary configuration information used to construct the underlying Kafka Producer.
-    flush_on_stop_doc: bool, optional
+    on_delivery : function(err, msg), optional
+        A function to be called after a message has been delivered or after delivery has
+        permanently failed.
+    flush_on_stop_doc : bool, optional
         False by default, set to True to flush() the underlying Kafka Producer when a stop
         document is received.
-    serializer: function, optional
+    serializer : function, optional
         Function to serialize data. Default is pickle.dumps.
 
     Example
     -------
-
-    Publish documents from a RunEngine to a Kafka broker on localhost on port 9092.
+    Publish documents from a RunEngine to a Kafka broker on localhost port 9092.
 
     >>> publisher = Publisher(
     >>>     topic="bluesky.documents",
@@ -107,8 +111,9 @@ class Publisher:
         bootstrap_servers,
         key,
         producer_config=None,
+        on_delivery=None,
         flush_on_stop_doc=False,
-        serializer=partial(msgpack.dumps, default=mpn.encode),
+        serializer=msgpack.dumps,
     ):
         self._topic = topic
         self._bootstrap_servers = bootstrap_servers
@@ -125,7 +130,12 @@ class Publisher:
         else:
             self._producer_config["bootstrap.servers"] = bootstrap_servers
 
-        logger.info("producer configuration: %s", self._producer_config)
+        logger.debug("producer configuration: %s", self._producer_config)
+
+        if on_delivery is None:
+            self.on_delivery = default_delivery_report
+        else:
+            self.on_delivery = on_delivery
 
         self._flush_on_stop_doc = flush_on_stop_doc
         self._producer = Producer(self._producer_config)
@@ -152,7 +162,11 @@ class Publisher:
 
         """
         logger.debug(
-            "KafkaProducer(topic=%s key=%s msg=[name=%s, doc=%s])",
+            "publishing document to Kafka broker(s):"
+            "topic: '%s'\n"
+            "key:   '%s'\n"
+            "name:  '%s'\n"
+            "doc:   %s",
             self._topic,
             self._key,
             name,
@@ -162,7 +176,7 @@ class Publisher:
             topic=self._topic,
             key=self._key,
             value=self._serializer((name, doc)),
-            callback=delivery_report,
+            on_delivery=self.on_delivery,
         )
         if name == "stop" and self._flush_on_stop_doc:
             self.flush()
@@ -172,7 +186,9 @@ class Publisher:
         Flush all buffered messages to the broker(s).
         """
         logger.debug(
-            "flushing Kafka Producer for topic % and key %s", self._topic, self._key
+            "flushing Kafka Producer for topic '%s' and key '%s'",
+            self._topic,
+            self._key,
         )
         self._producer.flush()
 
