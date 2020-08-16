@@ -30,9 +30,20 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture
-def bootstrap_servers(request):
-    print(request)
+@pytest.fixture(scope="function")
+def kafka_bootstrap_servers(request):
+    """
+    Return a comma-delimited string of Kafka bootstrap server host:port specified
+    on the pytest command line with option --kafka-bootstrap-servers.
+
+    Parameters
+    ----------
+    request : pytest request fixture
+
+    Returns
+    -------
+    comma-delimited string of Kafka bootstrap server host:port
+    """
     return request.config.getoption("--kafka-bootstrap-servers")
 
 
