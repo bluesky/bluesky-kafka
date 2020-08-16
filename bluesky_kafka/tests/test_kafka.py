@@ -22,7 +22,6 @@ logging.getLogger("bluesky.kafka").setLevel("DEBUG")
 
 # the Kafka test broker should be configured with
 # KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
-TEST_TOPIC = "bluesky-kafka-test"
 
 
 def test_producer_config():
