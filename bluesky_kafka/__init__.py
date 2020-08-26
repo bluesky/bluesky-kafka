@@ -151,15 +151,18 @@ class Publisher:
             name,
             doc,
         )
-        self._producer.produce(
-            topic=self._topic,
-            key=self._key,
-
-            value=self._serializer((name, doc)),
-            callback=delivery_report,
-        )
-        if name == "stop" and self._flush_on_stop_doc:
-            self.flush()
+        try:
+            self._producer.produce(
+                topic=self._topic,
+                key=self._key,
+                value=self._serializer((name, doc)),
+                callback=delivery_report,
+            )
+            if name == "stop" and self._flush_on_stop_doc:
+                self.flush()
+        except Exception as err:
+            logger.error(f"Kafka Producer error: {name} {doc} {err}")
+            logger.exception(err)
 
     def flush(self):
         """
