@@ -281,8 +281,8 @@ class BlueskyConsumer:
         )
         logger.debug("subscribing to Kafka topic(s): %s", topics)
 
-        self._consumer = Consumer(self._consumer_config)
-        self._consumer.subscribe(topics=topics)
+        self.consumer = Consumer(self._consumer_config)
+        self.consumer.subscribe(topics=topics)
         self.closed = False
 
     def _poll(self, work_during_wait=None):
@@ -307,7 +307,7 @@ class BlueskyConsumer:
             work_during_wait = no_work_during_wait
 
         while True:
-            msg = self._consumer.poll(self.polling_duration)
+            msg = self.consumer.poll(self.polling_duration)
             if msg is None:
                 # no message was delivered
                 # do some work before polling again
@@ -349,10 +349,10 @@ class BlueskyConsumer:
             name,
             doc,
         )
-        continue_polling = self.process_document(self._consumer, msg.topic(), name, doc)
+        continue_polling = self.process_document(msg.topic(), name, doc)
         return continue_polling
 
-    def process_document(self, consumer, topic, name, doc):
+    def process_document(self, topic, name, doc):
         """
         Subclasses may override this method to process documents.
         Alternatively a document-processing function can be specified at init time
@@ -364,8 +364,6 @@ class BlueskyConsumer:
 
         Parameters
         ----------
-        consumer : confluent_kafka.consumer
-            the underlying Kafka Consumer, useful for committing messages
         topic : str
             the Kafka topic of the message containing name and doc
         name : str
@@ -385,7 +383,7 @@ class BlueskyConsumer:
                 "in at init time via the process_document parameter."
             )
         else:
-            continue_polling = self._process_document(consumer, topic, name, doc)
+            continue_polling = self._process_document(self.consumer, topic, name, doc)
             return continue_polling
 
     def start(self, work_during_wait=None):
@@ -416,7 +414,7 @@ class BlueskyConsumer:
         """
         Close the underlying consumer.
         """
-        self._consumer.close()
+        self.consumer.close()
         self.closed = True
 
 
@@ -573,9 +571,9 @@ class MongoConsumer(BlueskyConsumer):
         self._serializers = self.SerializerFactory(mongo_uri, auth_source)
         super().__init__(*args, **kwargs)
 
-    def process_document(self, consumer, topic, name, doc):
+    def process_document(self, topic, name, doc):
         result_name, result_doc = self._serializers[topic](name, doc)
         if name == "stop":
-            consumer.commit(asynchronous=False)
+            self.consumer.commit(asynchronous=False)
 
         return True
