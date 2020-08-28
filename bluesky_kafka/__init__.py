@@ -141,6 +141,32 @@ class Publisher:
         self._producer = Producer(self._producer_config)
         self._serializer = serializer
 
+    def __str__(self):
+        return (
+            "bluesky_kafka.Publisher("
+            f"topic='{self.topic}',"
+            f"key='{self._key}',"
+            f"bootstrap_servers='{self._bootstrap_servers}'"
+            f"producer_config='{self._producer_config}'"
+            ")"
+        )
+
+    def get_cluster_metadata(self, timeout=5.0):
+        """
+        Return information about the Kafka cluster and this Publisher's topic.
+
+        Parameters
+        ----------
+        timeout: float, optional
+            maximum time to wait before timing out, -1 for inifinte timeout, default is 5.0
+
+        Returns
+        -------
+        cluster_metadata: confluent_kafka.admin.ClusterMetadata
+        """
+        cluster_metadata = self._producer.list_topics(topic=self.topic, timeout=timeout)
+        return cluster_metadata
+
     def __call__(self, name, doc):
         """
         Publish the specified name and document as a Kafka message.
