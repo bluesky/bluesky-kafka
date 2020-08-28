@@ -4,6 +4,7 @@ import logging
 import msgpack
 import msgpack_numpy as mpn
 
+from confluent_kafka.cimpl import KafkaException
 import numpy as np
 import pickle
 import pytest
@@ -43,6 +44,25 @@ def test_producer_config():
         kafka_publisher._producer_config["bootstrap.servers"]
         == "1.2.3.4:9092,5.6.7.8:9092"
     )
+
+
+def test_get_cluster_metadata(publisher_factory):
+    # the topic test.get.cluster.metadata will be created
+    # by the call to publisher.get_cluster_metadata
+    # if automatic topic creation is enabled
+    # otherwise this test will fail
+    publisher = publisher_factory(topic="test.get.cluster.metadata")
+    cluster_metadata = publisher.get_cluster_metadata()
+    assert "test.get.cluster.metadata" in cluster_metadata.topics
+
+
+def test_get_cluster_metadata_failure(publisher_factory):
+    publisher = publisher_factory(
+        topic="test.get.cluster.metadata.failure",
+        bootstrap_servers="5.6.7.8:9092"
+    )
+    with pytest.raises(KafkaException):
+        publisher.get_cluster_metadata()
 
 
 def test_consumer_config():
