@@ -115,7 +115,7 @@ class Publisher:
         flush_on_stop_doc=False,
         serializer=msgpack.dumps,
     ):
-        self._topic = topic
+        self.topic = topic
         self._bootstrap_servers = bootstrap_servers
         self._key = key
         # in the case that "bootstrap.servers" is included in producer_config
@@ -167,13 +167,13 @@ class Publisher:
             "key:   '%s'\n"
             "name:  '%s'\n"
             "doc:   %s",
-            self._topic,
+            self.topic,
             self._key,
             name,
             doc,
         )
         self._producer.produce(
-            topic=self._topic,
+            topic=self.topic,
             key=self._key,
             value=self._serializer((name, doc)),
             on_delivery=self.on_delivery,
@@ -187,7 +187,7 @@ class Publisher:
         """
         logger.debug(
             "flushing Kafka Producer for topic '%s' and key '%s'",
-            self._topic,
+            self.topic,
             self._key,
         )
         self._producer.flush()
