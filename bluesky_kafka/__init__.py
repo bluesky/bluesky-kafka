@@ -1,29 +1,36 @@
 import logging
-import pickle
+
+from confluent_kafka import Consumer, Producer
+
+import msgpack
+import msgpack_numpy as mpn
 
 from bluesky.run_engine import Dispatcher, DocumentNames
-from confluent_kafka import Consumer, Producer
-from suitcase.mongo_normalized import Serializer
+from suitcase import mongo_normalized
 
 from ._version import get_versions
 
 __version__ = get_versions()["version"]
 del get_versions
 
+# this is the recommended way to modify the python msgpack
+# package to handle numpy arrays with msgpack_numpy
+mpn.patch()
+
 logger = logging.getLogger(name="bluesky.kafka")
 
 
-def delivery_report(err, msg):
+def default_delivery_report(err, msg):
     """
     Called once for each message produced to indicate delivery result.
     Triggered by poll() or flush().
 
     Parameters
     ----------
-    err
-    msg
-
+    err : str
+    msg : Kafka message without headers
     """
+
     if err is not None:
         logger.error("message delivery failed: %s", err)
     else:
@@ -36,7 +43,9 @@ def delivery_report(err, msg):
 
 class Publisher:
     """
-    A callback that publishes documents to a Kafka server.
+    A class for publishing bluesky documents to a Kafka broker.
+
+    The intention is that Publisher objects be subscribed to a RunEngine.
 
     Reference: https://github.com/confluentinc/confluent-kafka-python/issues/137
 
@@ -65,25 +74,27 @@ class Publisher:
 
     Parameters
     ----------
-    topic: str
+    topic : str
         Topic to which all messages will be published.
     bootstrap_servers: str
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``.
-    key: str
+    key : str
         Kafka "key" string. Specify a key to maintain message order. If None is specified
         no ordering will be imposed on messages.
-    producer_config: dict, optional
+    producer_config : dict, optional
         Dictionary configuration information used to construct the underlying Kafka Producer.
-    flush_on_stop_doc: bool, optional
+    on_delivery : function(err, msg), optional
+        A function to be called after a message has been delivered or after delivery has
+        permanently failed.
+    flush_on_stop_doc : bool, optional
         False by default, set to True to flush() the underlying Kafka Producer when a stop
         document is received.
-    serializer: function, optional
+    serializer : function, optional
         Function to serialize data. Default is pickle.dumps.
 
     Example
     -------
-
-    Publish documents from a RunEngine to a Kafka broker on localhost on port 9092.
+    Publish documents from a RunEngine to a Kafka broker on localhost port 9092.
 
     >>> publisher = Publisher(
     >>>     topic="bluesky.documents",
@@ -100,10 +111,11 @@ class Publisher:
         bootstrap_servers,
         key,
         producer_config=None,
+        on_delivery=None,
         flush_on_stop_doc=False,
-        serializer=pickle.dumps,
+        serializer=msgpack.dumps,
     ):
-        self._topic = topic
+        self.topic = topic
         self._bootstrap_servers = bootstrap_servers
         self._key = key
         # in the case that "bootstrap.servers" is included in producer_config
@@ -118,11 +130,42 @@ class Publisher:
         else:
             self._producer_config["bootstrap.servers"] = bootstrap_servers
 
-        logger.info("producer configuration: %s", self._producer_config)
+        logger.debug("producer configuration: %s", self._producer_config)
+
+        if on_delivery is None:
+            self.on_delivery = default_delivery_report
+        else:
+            self.on_delivery = on_delivery
 
         self._flush_on_stop_doc = flush_on_stop_doc
         self._producer = Producer(self._producer_config)
         self._serializer = serializer
+
+    def __str__(self):
+        return (
+            "bluesky_kafka.Publisher("
+            f"topic='{self.topic}',"
+            f"key='{self._key}',"
+            f"bootstrap_servers='{self._bootstrap_servers}'"
+            f"producer_config='{self._producer_config}'"
+            ")"
+        )
+
+    def get_cluster_metadata(self, timeout=5.0):
+        """
+        Return information about the Kafka cluster and this Publisher's topic.
+
+        Parameters
+        ----------
+        timeout: float, optional
+            maximum time to wait before timing out, -1 for inifinte timeout, default is 5.0
+
+        Returns
+        -------
+        cluster_metadata: confluent_kafka.admin.ClusterMetadata
+        """
+        cluster_metadata = self._producer.list_topics(topic=self.topic, timeout=timeout)
+        return cluster_metadata
 
     def __call__(self, name, doc):
         """
@@ -145,18 +188,21 @@ class Publisher:
 
         """
         logger.debug(
-            "KafkaProducer(topic=%s key=%s msg=[name=%s, doc=%s])",
-            self._topic,
+            "publishing document to Kafka broker(s):"
+            "topic: '%s'\n"
+            "key:   '%s'\n"
+            "name:  '%s'\n"
+            "doc:   %s",
+            self.topic,
             self._key,
             name,
             doc,
         )
         self._producer.produce(
-            topic=self._topic,
+            topic=self.topic,
             key=self._key,
-
             value=self._serializer((name, doc)),
-            callback=delivery_report,
+            on_delivery=self.on_delivery,
         )
         if name == "stop" and self._flush_on_stop_doc:
             self.flush()
@@ -166,14 +212,241 @@ class Publisher:
         Flush all buffered messages to the broker(s).
         """
         logger.debug(
-            "flushing Kafka Producer for topic % and key %s", self._topic, self._key
+            "flushing Kafka Producer for topic '%s' and key '%s'",
+            self.topic,
+            self._key,
         )
         self._producer.flush()
 
 
+class BlueskyConsumer:
+    """
+    Process Bluesky documents received over the network from a Kafka server.
+
+    There is no default configuration. A reasonable configuration for production is
+        consumer_config={
+            "auto.offset.reset": "latest"
+        }
+
+    Parameters
+    ----------
+    topics : list of str
+        List of topics as strings such as ["topic-1", "topic-2"]
+    bootstrap_servers : str
+        Comma-delimited list of Kafka server addresses as a string
+        such as ``'broker1:9092,broker2:9092,127.0.0.1:9092'``
+    group_id : str
+        Required string identifier for the consumer's Kafka Consumer group.
+    consumer_config : dict
+        Override default configuration or specify additional configuration
+        options to confluent_kafka.Consumer.
+    polling_duration : float
+        Time in seconds to wait for a message before running function work_during_wait
+        in the _poll method. Default is 0.05.
+    deserializer : function, optional
+        Function to deserialize data. Default is msgpack.loads.
+    process_document : function(consumer, topic, name, doc), optional
+        A function that procceses received documents, this allows you to have custom document
+        processing without the need to make a subclass. The function signature must match
+        BlueskyConsumer.process_document(consumer, topic, name, document).
+
+    Example
+    -------
+
+    Print all documents generated by remote RunEngines.
+
+    >>> consumer = BlueskyConsumer(
+    >>>         topics=["abc.bluesky.documents", "xyz.bluesky.documents"],
+    >>>         bootstrap_servers='localhost:9092',
+    >>>         group_id="print-document-group",
+    >>>         consumer_config={
+    >>>             "auto.offset.reset": "latest"
+    >>>         }
+    >>>         process_document=lambda consumer, topic, name, doc: print(doc)
+    >>>    )
+    >>> consumer.start()  # runs until interrupted
+    """
+
+    def __init__(
+        self,
+        topics,
+        bootstrap_servers,
+        group_id,
+        consumer_config=None,
+        polling_duration=0.05,
+        deserializer=msgpack.loads,
+        process_document=None,
+    ):
+        self._topics = topics
+        self._bootstrap_servers = bootstrap_servers
+        self._group_id = group_id
+        self._deserializer = deserializer
+        self._process_document = process_document
+        self.polling_duration = polling_duration
+
+        self._consumer_config = dict()
+        if consumer_config is not None:
+            self._consumer_config.update(consumer_config)
+
+        if "group.id" in self._consumer_config:
+            raise ValueError(
+                "do not specify 'group.id' in consumer_config, use only the 'group_id' argument"
+            )
+        else:
+            self._consumer_config["group.id"] = group_id
+
+        if "bootstrap.servers" in self._consumer_config:
+            self._consumer_config["bootstrap.servers"] = ",".join(
+                [bootstrap_servers, self._consumer_config["bootstrap.servers"]]
+            )
+        else:
+            self._consumer_config["bootstrap.servers"] = bootstrap_servers
+
+        logger.debug(
+            "BlueskyConsumer configuration:\n%s", self._consumer_config,
+        )
+        logger.debug("subscribing to Kafka topic(s): %s", topics)
+
+        self.consumer = Consumer(self._consumer_config)
+        self.consumer.subscribe(topics=topics)
+        self.closed = False
+
+    def _poll(self, work_during_wait=None):
+        """
+        This method defines the polling loop in which messages are pulled from
+        one or more Kafka brokers and processed with self.process().
+
+        The polling loop will be interrupted if self.process() returns False.
+
+        Parameters
+        ----------
+        work_during_wait : function(), optional
+            a parameter-less function to be called between calls to Consumer.poll
+
+        """
+
+        def no_work_during_wait():
+            # do nothing between message deliveries
+            pass
+
+        if work_during_wait is None:
+            work_during_wait = no_work_during_wait
+
+        while True:
+            msg = self.consumer.poll(self.polling_duration)
+            if msg is None:
+                # no message was delivered
+                # do some work before polling again
+                work_during_wait()
+            elif msg.error():
+                logger.error("Kafka Consumer error: %s", msg.error())
+            else:
+                try:
+                    if self.process(msg) is False:
+                        logger.debug(
+                            "breaking out of polling loop after process(msg) returned False"
+                        )
+                        break
+                except Exception as exc:
+                    logger.exception(exc)
+
+    def process(self, msg):
+        """
+        Deserialize the Kafka message and extract the bluesky document.
+
+        Document processing is delegated to self.process_document(name, document).
+
+        This method can be overridden to customize message handling.
+
+        Parameters
+        ----------
+        msg : Kafka message
+
+        Returns
+        -------
+        continue_polling : bool
+            return True to continue polling, False to break out of the polling loop
+        """
+        name, doc = self._deserializer(msg.value())
+        logger.debug(
+            "BlueskyConsumer deserialized document with "
+            "topic %s for Kafka Consumer name: %s doc: %s",
+            msg.topic(),
+            name,
+            doc,
+        )
+        continue_polling = self.process_document(msg.topic(), name, doc)
+        return continue_polling
+
+    def process_document(self, topic, name, doc):
+        """
+        Subclasses may override this method to process documents.
+        Alternatively a document-processing function can be specified at init time
+        and it will be called here. The function must have the same signature as
+        this method (except for the `self` parameter).
+
+        If this method returns False the BlueskyConsumer will break out of the
+        polling loop.
+
+        Parameters
+        ----------
+        topic : str
+            the Kafka topic of the message containing name and doc
+        name : str
+            bluesky document name: `start`, `descriptor`, `event`, etc.
+        doc : dict
+            bluesky document
+
+        Returns
+        -------
+        continue_polling : bool
+            return False to break out of the polling loop, return True to continue polling
+        """
+        if self._process_document is None:
+            raise NotImplementedError(
+                "This class must either be subclassed to override the "
+                "process_document method, or have a process function passed "
+                "in at init time via the process_document parameter."
+            )
+        else:
+            continue_polling = self._process_document(self.consumer, topic, name, doc)
+            return continue_polling
+
+    def start(self, work_during_wait=None):
+        """
+        Start the polling loop.
+
+        Parameters
+        ----------
+        work_during_wait : function(), optional
+            a parameter-less function to be called between calls to Consumer.poll
+
+        """
+        if self.closed:
+            raise RuntimeError(
+                "This BlueskyConsumer has already been "
+                "started and interrupted. Create a fresh "
+                f"instance with {repr(self)}"
+            )
+        try:
+            self._poll(work_during_wait=work_during_wait)
+        except Exception:
+            self.stop()
+            raise
+        finally:
+            self.stop()
+
+    def stop(self):
+        """
+        Close the underlying consumer.
+        """
+        self.consumer.close()
+        self.closed = True
+
+
 class RemoteDispatcher(Dispatcher):
     """
-    Dispatch documents received over the network from a Kafka server.
+    Dispatch documents from Kafka to bluesky callbacks.
 
     There is no default configuration. A reasonable configuration for production is
         consumer_config={
@@ -195,17 +468,16 @@ class RemoteDispatcher(Dispatcher):
         Time in seconds to wait for a message before running function work_while_waiting.
         Default is 0.05.
     deserializer: function, optional
-        optional function to deserialize data. Default is pickle.loads.
+        optional function to deserialize data. Default is msgpack.loads.
 
     Example
     -------
-
     Print all documents generated by remote RunEngines.
 
     >>> d = RemoteDispatcher(
-    >>>         topics=["abc.def", "ghi.jkl"],
+    >>>         topics=["abc.bluesky.documents", "ghi.bluesky.documents"],
     >>>         bootstrap_servers='localhost:9092',
-    >>>         group_id="xyz",
+    >>>         group_id="document-printers",
     >>>         consumer_config={
     >>>             "auto.offset.reset": "latest"
     >>>         }
@@ -221,76 +493,54 @@ class RemoteDispatcher(Dispatcher):
         group_id,
         consumer_config=None,
         polling_duration=0.05,
-        deserializer=pickle.loads,
+        deserializer=msgpack.loads,
     ):
         super().__init__()
 
-        self._topics = topics
-        self._bootstrap_servers = bootstrap_servers
-        self._group_id = group_id
-        self.polling_duration = polling_duration
-        self._deserializer = deserializer
-
-        self._consumer_config = dict()
-        if consumer_config is not None:
-            self._consumer_config.update(consumer_config)
-
-        if "group.id" in self._consumer_config:
-            raise ValueError(
-                "do not specify 'group.id' in consumer_config, use only the 'group_id' argument"
-            )
-        else:
-            self._consumer_config["group.id"] = group_id
-
-        if "bootstrap.servers" in self._consumer_config:
-            self._consumer_config["bootstrap.servers"] = ",".join(
-                [bootstrap_servers, self._consumer_config["bootstrap.servers"]]
-            )
-        else:
-            self._consumer_config["bootstrap.servers"] = bootstrap_servers
-
-        logger.info(
-            "starting RemoteDispatcher with Kafka Consumer configuration:\n%s",
-            self._consumer_config,
+        self._bluesky_consumer = BlueskyConsumer(
+            topics=topics,
+            bootstrap_servers=bootstrap_servers,
+            group_id=group_id,
+            consumer_config=consumer_config,
+            process_document=self.process_document,
+            polling_duration=polling_duration,
+            deserializer=deserializer,
         )
-        logger.info("subscribing to Kafka topic(s): %s", topics)
 
-        self._consumer = Consumer(self._consumer_config)
-        self._consumer.subscribe(topics=topics)
         self.closed = False
 
-    def _poll(self, work_during_wait):
-        while True:
-            msg = self._consumer.poll(self.polling_duration)
+    def process_document(self, consumer, topic, name, document):
+        """
+        Send bluesky document to RemoteDispatcher.process(name, doc).
 
-            if msg is None:
-                # no message was delivered
-                # do some work before polling again
-                work_during_wait()
-            elif msg.error():
-                logger.error("Kafka Consumer error: %s", msg.error())
-            else:
-                try:
-                    name, doc = self._deserializer(msg.value())
-                    logger.debug(
-                        "RemoteDispatcher deserialized document with "
-                        "topic %s for Kafka Consumer name: %s doc: %s",
-                        msg.topic(),
-                        name,
-                        doc,
-                    )
-                    self.process(DocumentNames[name], doc)
-                except Exception as exc:
-                    logger.exception(exc)
+        Parameters
+        ----------
+        consumer : confluent_kafka.consumer
+            the underlying Kafka Consumer, useful for committing messages
+        topic : str
+            the Kafka topic of the message containing name and doc
+        name : str
+            bluesky document name: `start`, `descriptor`, `event`, etc.
+        doc : dict
+            bluesky document
+
+        Return
+        ------
+        continue_polling : bool
+
+        """
+        self.process(DocumentNames[name], document)
+        return True
 
     def start(self, work_during_wait=None):
-        def no_work_during_wait():
-            # do nothing between message deliveries
-            pass
+        """
+        Start the BlueskyConsumer polling loop.
 
-        if work_during_wait is None:
-            work_during_wait = no_work_during_wait
-
+        Parameters
+        ----------
+        work_during_wait : function()
+            optional function to be called inside the polling loop between polls
+        """
         if self.closed:
             raise RuntimeError(
                 "This RemoteDispatcher has already been "
@@ -298,181 +548,15 @@ class RemoteDispatcher(Dispatcher):
                 f"instance with {repr(self)}"
             )
         try:
-            self._poll(work_during_wait=work_during_wait)
-        except Exception:
+            self._bluesky_consumer.start(work_during_wait=work_during_wait)
+        finally:
             self.stop()
-            raise
 
     def stop(self):
-        self._consumer.close()
-        self.closed = True
-
-
-class BlueskyConsumer:
-    """
-    Process Bluesky documents received over the network from a Kafka server.
-
-    There is no default configuration. A reasonable configuration for production is
-        consumer_config={
-            "auto.offset.reset": "latest"
-        }
-
-    Parameters
-    ----------
-    topics: list
-        List of topics as strings such as ["topic-1", "topic-2"]
-    bootstrap_servers : str
-        Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``
-    group_id: str
-        Required string identifier for Kafka Consumer group.
-    consumer_config: dict
-        Override default configuration or specify additional configuration
-        options to confluent_kafka.Consumer.
-    polling_duration: float
-        Time in seconds to wait for a message before running function work_while_waiting.
-        Default is 0.05.
-    deserializer: function, optional
-        optional function to deserialize data. Default is pickle.loads.
-    process_document: function, optional
-        A function that procceses received documents, this allows you to have custom document
-        processing with out the need to make a subclass.
-    commit_on_stop_doc: bool, optional
-        Send a commit to the topic after a stop doc is processed.
-
-    Example
-    -------
-
-    Print all documents generated by remote RunEngines.
-
-    >>> consumer = BlueskyConsumer(
-    >>>         topics=["abc.def", "ghi.jkl"],
-    >>>         bootstrap_servers='localhost:9092',
-    >>>         group_id="xyz",
-    >>>         consumer_config={
-    >>>             "auto.offset.reset": "latest"
-    >>>         }
-    >>>    )
-    >>> consumer.start()  # runs until interrupted
-    """
-
-    def __init__(
-        self,
-        topics,
-        bootstrap_servers,
-        group_id,
-        consumer_config=None,
-        polling_duration=0.05,
-        deserializer=pickle.loads,
-        process_document=None,
-        commit_on_stop_doc=True,
-    ):
-        self._topics = topics
-        self._bootstrap_servers = bootstrap_servers
-        self._group_id = group_id
-        self._deserializer = deserializer
-        self._process_document = process_document
-        self._commit_on_stop_doc = True
-        self.polling_duration = polling_duration
-
-        self._consumer_config = dict()
-        if consumer_config is not None:
-            self._consumer_config.update(consumer_config)
-
-        if "group.id" in self._consumer_config:
-            raise ValueError(
-                "do not specify 'group.id' in consumer_config, use only the 'group_id' argument"
-            )
-        else:
-            self._consumer_config["group.id"] = group_id
-
-        if "bootstrap.servers" in self._consumer_config:
-            self._consumer_config["bootstrap.servers"] = ",".join(
-                [bootstrap_servers, self._consumer_config["bootstrap.servers"]]
-            )
-        else:
-            self._consumer_config["bootstrap.servers"] = bootstrap_servers
-
-        logger.info(
-            "starting RemoteDispatcher with Kafka Consumer configuration:\n%s",
-            self._consumer_config,
-        )
-        logger.info("subscribing to Kafka topic(s): %s", topics)
-
-        self._consumer = Consumer(self._consumer_config)
-        self._consumer.subscribe(topics=topics)
-        self.closed = False
-
-    def process_document(self, topic, name, doc):
-        if self._process_document is None:
-            raise NotImplementedError("This class must either be subclassed to override the "
-                                      "process_document method, or have a process function passed "
-                                      "in at init time via the process kwarg.")
-        else:
-            return self._process_document(topic, name, doc)
-
-    def process(self, msg):
-        name, doc = self._deserializer(msg.value())
-        logger.debug(
-            "RemoteDispatcher deserialized document with "
-            "topic %s for Kafka Consumer name: %s doc: %s",
-            msg.topic(),
-            name,
-            doc,
-        )
-        self.process_document(msg.topic(), name, doc)
-        if name == 'stop':
-            self.finalize_run(doc)
-
-    def _poll(self, work_during_wait):
-        while True:
-            msg = self._consumer.poll(self.polling_duration)
-            if msg is None:
-                # no message was delivered
-                # do some work before polling again
-                work_during_wait()
-            elif msg.error():
-                logger.error("Kafka Consumer error: %s", msg.error())
-            else:
-                try:
-                    self.process(msg)
-                except Exception as exc:
-                    logger.exception(exc)
-
-    def start(self, work_during_wait=None):
-        def no_work_during_wait():
-            # do nothing between message deliveries
-            pass
-
-        if work_during_wait is None:
-            work_during_wait = no_work_during_wait
-
-        if self.closed:
-            raise RuntimeError(
-                "This RemoteDispatcher has already been "
-                "started and interrupted. Create a fresh "
-                f"instance with {repr(self)}"
-            )
-        try:
-            self._poll(work_during_wait=work_during_wait)
-        except Exception:
-            self.stop()
-            raise
-
-    def stop(self):
-        self._consumer.close()
-        self.closed = True
-
-    def finalize_run(self, stop_doc):
         """
-        Finalize the consumption of the Run.
+        Mark this RemoteDispatcher as closed.
         """
-        logger.debug(
-            f"Run consumption complete: {stop_doc['run_start']}, "
-            f"{self._topics}, {self._group_id}"
-        )
-        if self._commit_on_stop_doc:
-            self._consumer.commit(asynchronous=False)
-
+        self.closed = True
 
 
 class MongoConsumer(BlueskyConsumer):
@@ -486,21 +570,36 @@ class MongoConsumer(BlueskyConsumer):
         Like a defaultdict, but it makes a Serializer based on the
         key, which in this case is the topic name.
         """
+
         def __init__(self, mongo_uri, auth_source):
             self._mongo_uri = mongo_uri
             self._auth_source = auth_source
 
         def get_database(self, topic):
-            return topic.replace('.', '-')
+            return topic.replace(".", "-")
 
         def __missing__(self, topic):
-            result = self[topic] = Serializer(self._mongo_uri + '/' + self.get_database(topic) + '?authSource=' + self._auth_source,
-                                              self._mongo_uri + '/' + self.get_database(topic) + '?authSource=' + self._auth_source)
+            result = self[topic] = mongo_normalized.Serializer(
+                self._mongo_uri
+                + "/"
+                + self.get_database(topic)
+                + "?authSource="
+                + self._auth_source,
+                self._mongo_uri
+                + "/"
+                + self.get_database(topic)
+                + "?authSource="
+                + self._auth_source,
+            )
             return result
 
-    def __init__(self, mongo_uri, auth_source='admin', *args, **kwargs):
+    def __init__(self, mongo_uri, auth_source="admin", *args, **kwargs):
         self._serializers = self.SerializerFactory(mongo_uri, auth_source)
-        return super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
         result_name, result_doc = self._serializers[topic](name, doc)
+        if name == "stop":
+            self.consumer.commit(asynchronous=False)
+
+        return True

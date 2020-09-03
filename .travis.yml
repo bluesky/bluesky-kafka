@@ -33,12 +33,17 @@ matrix:
       env: PUBLISH_DOCS=1
     - os: linux
       python: 3.7
+    - os: linux
+      python: 3.8
     - os: osx
       language: generic
       env: PYTHON=3.6
     - os: osx
       language: generic
       env: PYTHON=3.7
+    - os: osx
+      language: generic
+      env: PYTHON=3.8
     - os: linux
       python: nightly
   allow_failures:
@@ -76,10 +81,10 @@ before_script:
         brew install kafka
         brew services start zookeeper
         brew services start kafka
-        sleep 10
+        sleep 60
     else
         sudo docker-compose -f scripts/bitnami-kafka-docker-compose.yml up > kafka_zookeeper.log &
-        sleep 20
+        sleep 60
     fi
 
 script:
