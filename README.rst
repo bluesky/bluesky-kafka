@@ -30,7 +30,7 @@ v0.3.0 (2020-09-03)
 * added MongoConsumer
 * added supervisor configuration file for mongo_normalized_consumer.py
 * rewrote RemoteDispatcher to use BlueskyConsumer
-* chagned default serialization method to MessagePack
+* changed default serialization method to MessagePack
 
 Test
 ----
