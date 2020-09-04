@@ -16,7 +16,19 @@ Kafka integration for bluesky.
 Features
 --------
 
-* A Kafka callback for bluesky.
+* BlueskyConsumer
+* MongoConsumer
+* Publisher
+* RemoteDispatcher
+
+Release History
+---------------
+
+v0.3.0 (2020-09-03)
+...................
+* added MongoConsumer
+* added supervisor configuration file for mongo_normalized_consumer.py
+* chagned default serialization method to MessagePack
 
 Test
 ----
