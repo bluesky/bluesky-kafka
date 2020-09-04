@@ -603,3 +603,31 @@ class MongoConsumer(BlueskyConsumer):
             self.consumer.commit(asynchronous=False)
 
         return True
+
+
+class BlueskyStream(BlueskyConsumer):
+
+    class PublisherFactory(dict):
+        """
+        Like a defaultdict, but it makes a Serializer based on the
+        key, which in this case is the topic name.
+        """
+        def __init__(
+            self,
+            bootstrap_servers,
+            key,
+            producer_config=None,
+            on_delivery=None,
+            flush_on_stop_doc=False,
+            serializer=msgpack.dumps)
+
+        def get_topic(self, topic):
+            return topic + '.processed'
+
+        def __missing__(self, topic):
+            result = self[topic] = mongo_normalized.Serializer(
+            )
+            return result
+
+    def __init__(self,  ending='processed', *args, **kwargs):
+        super().__init__(*args, **kwargs)
