@@ -121,7 +121,7 @@ def compare(a, b, label, remove_ok=False):
     assert not difference
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="this test only runs on linux")
+@pytest.mark.skip(reason="this test is not ready")
 def test_mongo_consumer(
     RE,
     hw,
