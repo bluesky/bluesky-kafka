@@ -607,8 +607,8 @@ class MongoConsumer(BlueskyConsumer):
 
 class RucioConsumer(BlueskyConsumer):
     """
-    Subclass of BlueskyConsumer that is specialized for inserting into a mongo
-    database determined by the topic name
+    Subclass of BlueskyConsumer that serializes documents to a msgpack file,
+    registers them with Rucio, adds a replication rule.
     """
 
     class SerializerFactory(dict):
@@ -707,6 +707,9 @@ class RucioConsumer(BlueskyConsumer):
 
     def process_document(self, topic, name, doc):
         result_name, result_doc = self._serializers[topic](name, doc)
+        # TODO: Need to handle run that are missing a stop doc.
+        # TODO: Need to figure out how to get the filenames out of artifacts.
+        # file names should be a tuple (root, ending, filename)
         if name == "stop":
             self._register_rucio(topic.split('.')[0], doc['run_start'], self.serializers[topic].artifacts)
             self.consumer.commit(asynchronous=False)
