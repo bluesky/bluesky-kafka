@@ -18,6 +18,11 @@ auto_offset_reset = "latest"
 topics = ["^.*bluesky.documents"]
 group_id = "rucio_archiver"
 
+# These are NSLS2 specific.
+rse='NSLS2'
+scope='nsls2'
+dataset='bluesky-sdcc',
+pfn='globus://'
 
 # Create a RucioConsumer that will automatically listen to new beamline topics.
 # The parameter metadata.max.age.ms determines how often the consumer will check for
