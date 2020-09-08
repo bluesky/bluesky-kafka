@@ -251,11 +251,14 @@ class PublisherRouter():
         topic,
         bootstrap_servers,
         producer_config=None,
+        handler_registry=None,
     }:
         self._topic = topic
         self._bootstrap_servers = bootstrap_servers
         self._producer_config = producer_config
-        self._run_router =  RunRouter(factories=[self.kafka_publisher_factory])
+        self._handler_registry = handler_registry
+        self._run_router =  RunRouter(factories=[self.kafka_publisher_factory],
+                                      handler_registry=self.handler_registry)
 
     def __call__(self, name, doc):
         self._run_router(name, doc)
@@ -705,7 +708,7 @@ class BlueskyStream(BlueskyConsumer):
     def __init__(self, input_topic, output_topic, group_id,
                  bootstrap_servers, consumer_config=None,
                  producer_config=None, polling_duration=0.05,
-                 process_document):
+                 process_document=None, handler_registry=None):
         self._input_topic = input_topic
         self._output_topic = output_topic
         self._group_id = group_id
@@ -714,9 +717,11 @@ class BlueskyStream(BlueskyConsumer):
         self._producer_config = producer_config
         self._polling_duration = polling_duration
         self._process_document = process_document
+        self._handler_registry = handler_registry
         self._producer_router = PublisherRouter(self._output_topic,
                                                 bootstrap_servers,
-                                                producer_config=self._producer_config)
+                                                producer_config=self._producer_config
+                                                handler_registry=self._handler_registry)
         super().__init__(
             [self._input_topic],
             self._bootstrap_servers,
@@ -726,7 +731,7 @@ class BlueskyStream(BlueskyConsumer):
             deserializer=msgpack.loads,
         )
 
-        def process_document_part2(self, topic, name, doc):
+        def process_produce(self, topic, name, doc):
         """
         Subclasses may override this method to process documents.
         Alternatively a document-processing function can be specified at init time
@@ -747,8 +752,10 @@ class BlueskyStream(BlueskyConsumer):
 
         Returns
         -------
-        continue_polling : bool
-            return False to break out of the polling loop, return True to continue polling
+        name : str
+            bluesky document name: `start`, `descriptor`, `event`, etc.
+        doc : dict
+            bluesky document
         """
         if self._process_document is None:
             raise NotImplementedError(
@@ -761,8 +768,7 @@ class BlueskyStream(BlueskyConsumer):
             return name, doc
 
         def process_document(self, topic, name, doc):
-            name, doc = process_document_part2(topic, name, doc)
+            # TODO: Make this a kafka transaction.
+            name, doc = process_produce(topic, name, doc)
             self._producer_router(name, doc)
             return True
-
-
