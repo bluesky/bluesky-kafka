@@ -713,7 +713,7 @@ class BlueskyStream(BlueskyConsumer):
     def __init__(self, input_topic, output_topic, group_id,
                  bootstrap_servers, consumer_config=None,
                  producer_config=None, polling_duration=0.05,
-                 process_document=None, handler_registry=None):
+                 process_produce=None, handler_registry=None):
         self._input_topic = input_topic
         self._output_topic = output_topic
         self._group_id = group_id
@@ -721,7 +721,7 @@ class BlueskyStream(BlueskyConsumer):
         self._consumer_config = consumer_config
         self._producer_config = producer_config
         self._polling_duration = polling_duration
-        self._process_document = process_document
+        self._process_produce = process_produce
         self._handler_registry = handler_registry
         self._producer_router = PublisherRouter(self._output_topic,
                                                 bootstrap_servers,
@@ -769,7 +769,7 @@ class BlueskyStream(BlueskyConsumer):
                 "in at init time via the process_document parameter."
             )
         else:
-            name, doc = self._process_document(self.consumer, topic, name, doc)
+            name, doc = self._process_produce(self.consumer, topic, name, doc)
             return name, doc
 
         def process_document(self, topic, name, doc):
