@@ -219,6 +219,96 @@ class Publisher:
         self._producer.flush()
 
 
+class PublisherRouter():
+    """
+    Subscribe a RunRouter to the specified RE to create Kafka Publishers.
+    Each Publisher will publish documents from a single run to the
+    Kafka topic "<beamline_name>.bluesky.documents".
+    Parameters
+    ----------
+    RE: RunEngine
+        the RunEngine to which the RunRouter will be subscribed
+    beamline_name: str
+        beamline name, for example "csx", to be used in building the
+        Kafka topic to which messages will be published
+    bootstrap_servers: str
+        Comma-delimited list of Kafka server addresses as a string such as ``'10.0.137.8:9092'``
+    producer_config: dict
+        dictionary of Kafka Producer configuration settings
+    Returns
+    -------
+    topic: str
+        the Kafka topic on which bluesky documents will be published
+    runrouter_token: int
+        subscription token corresponding to the RunRouter subscribed to the RunEngine
+        by this function
+    """
+    def __init__(self, topic)
+        self._topic = topic
+        self._run_router =  RunRouter(factories=[self.kafka_publisher_factory])
+
+    def __call__(self, name, doc):
+        self._run_router(topic, name, doc)
+
+    def kafka_publisher_factory(self, name, start_doc):
+        # create a Kafka Publisher for a single run
+        kafka_publisher = Publisher(
+            topic=topic,
+            bootstrap_servers=bootstrap_servers,
+            key=start_doc["uid"],
+            producer_config=producer_config,
+            flush_on_stop_doc=True,
+            serializer=partial(msgpack.dumps, default=mpn.encode),
+        )
+
+        def handle_publisher_exceptions(name_, doc_):
+            """
+            Do not let exceptions from the Kafka producer kill the RunEngine.
+            This is for testing and is not sufficient for Kafka in production.
+            TODO: improve exception handling for production
+            """
+            try:
+                kafka_publisher(name_, doc_)
+            except Exception as ex:
+                logger = logging.getLogger("nslsii")
+                logger.exception(
+                    "an error occurred when %s published %s\nname: %s\ndoc %s",
+                    kafka_publisher,
+                    name_,
+                    doc_,
+                )
+
+        try:
+            # call Producer.list_topics to test if we can connect to a Kafka broker
+            # TODO: add list_topics method to KafkaPublisher
+            cluster_metadata = kafka_publisher._producer.list_topics(
+                topic=topic, timeout=5.0
+            )
+            logging.getLogger("nslsii").info(
+                "connected to Kafka broker(s): %s", cluster_metadata
+            )
+            return [handle_publisher_exceptions], []
+        # TODO: raise BlueskyException or similar from KafkaPublisher.list_topics
+        except Exception:
+            # For now failure to connect to a Kafka broker will not be considered a
+            # significant problem because we are not relying on Kafka. When and if
+            # we do rely on Kafka for storing documents we will need a more robust
+            # response here.
+            # TODO: improve exception handling for production
+            nslsii_logger = logging.getLogger("nslsii")
+            nslsii_logger.exception("%s failed to connect to Kafka", kafka_publisher)
+
+            # documents will not be published to Kafka brokers
+            return [], []
+
+
+    # log this only once
+    logging.getLogger("nslsii").info(
+        "RE will publish documents to Kafka topic %s", topic
+    )
+
+    return topic, runrouter_token
+
 class BlueskyConsumer:
     """
     Process Bluesky documents received over the network from a Kafka server.
