@@ -724,5 +724,45 @@ class BlueskyStream(BlueskyConsumer):
             consumer_config=self._consumer_config,
             polling_duration=self._polling_duration,
             deserializer=msgpack.loads,
-            process_document=self._process_document
         )
+
+        def process_document_part2(self, topic, name, doc):
+        """
+        Subclasses may override this method to process documents.
+        Alternatively a document-processing function can be specified at init time
+        and it will be called here. The function must have the same signature as
+        this method (except for the `self` parameter).
+
+        If this method returns False the BlueskyConsumer will break out of the
+        polling loop.
+
+        Parameters
+        ----------
+        topic : str
+            the Kafka topic of the message containing name and doc
+        name : str
+            bluesky document name: `start`, `descriptor`, `event`, etc.
+        doc : dict
+            bluesky document
+
+        Returns
+        -------
+        continue_polling : bool
+            return False to break out of the polling loop, return True to continue polling
+        """
+        if self._process_document is None:
+            raise NotImplementedError(
+                "This class must either be subclassed to override the "
+                "process_document method, or have a process function passed "
+                "in at init time via the process_document parameter."
+            )
+        else:
+            name, doc = self._process_document(self.consumer, topic, name, doc)
+            return name, doc
+
+        def process_document(self, topic, name, doc):
+            name, doc = process_document_part2(topic, name, doc)
+            self._producer_router(name, doc)
+            return True
+
+
