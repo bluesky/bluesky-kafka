@@ -219,6 +219,7 @@ class Publisher:
         self._producer.flush()
 
 
+# Most of this code was vendored from nslsii. We plan to import this from bluesky-kafka in the future.
 class PublisherRouter():
     """
     Subscribe a RunRouter to the specified RE to create Kafka Publishers.
