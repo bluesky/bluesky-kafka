@@ -6,6 +6,7 @@ import msgpack
 import msgpack_numpy as mpn
 
 from bluesky.run_engine import Dispatcher, DocumentNames
+from event_model import RunRouter
 from suitcase import mongo_normalized
 
 from ._version import get_versions
@@ -219,7 +220,8 @@ class Publisher:
         self._producer.flush()
 
 
-# Most of this code was vendored from nslsii. We plan to import this from bluesky-kafka in the future.
+# Most of this code was vendored from nslsii. We plan to update the
+# nslsii code to import this class.
 class PublisherRouter():
     """
     Subscribe a RunRouter to the specified RE to create Kafka Publishers.
@@ -244,20 +246,27 @@ class PublisherRouter():
         subscription token corresponding to the RunRouter subscribed to the RunEngine
         by this function
     """
-    def __init__(self, topic)
+    def __init__(
+        self,
+        topic,
+        bootstrap_servers,
+        producer_config=None,
+    }:
         self._topic = topic
+        self._bootstrap_servers = bootstrap_servers
+        self._producer_config = producer_config
         self._run_router =  RunRouter(factories=[self.kafka_publisher_factory])
 
     def __call__(self, name, doc):
-        self._run_router(topic, name, doc)
+        self._run_router(name, doc)
 
     def kafka_publisher_factory(self, name, start_doc):
         # create a Kafka Publisher for a single run
         kafka_publisher = Publisher(
-            topic=topic,
-            bootstrap_servers=bootstrap_servers,
+            topic=self._topic,
+            bootstrap_servers=self._bootstrap_servers,
             key=start_doc["uid"],
-            producer_config=producer_config,
+            producer_config=self._producer_config,
             flush_on_stop_doc=True,
             serializer=partial(msgpack.dumps, default=mpn.encode),
         )
@@ -302,13 +311,6 @@ class PublisherRouter():
             # documents will not be published to Kafka brokers
             return [], []
 
-
-    # log this only once
-    logging.getLogger("nslsii").info(
-        "RE will publish documents to Kafka topic %s", topic
-    )
-
-    return topic, runrouter_token
 
 class BlueskyConsumer:
     """
@@ -697,28 +699,30 @@ class MongoConsumer(BlueskyConsumer):
 
 
 class BlueskyStream(BlueskyConsumer):
-
-    class PublisherFactory(dict):
-        """
-        Like a defaultdict, but it makes a Serializer based on the
-        key, which in this case is the topic name.
-        """
-        def __init__(
-            self,
-            bootstrap_servers,
-            key,
-            producer_config=None,
-            on_delivery=None,
-            flush_on_stop_doc=False,
-            serializer=msgpack.dumps)
-
-        def get_topic(self, topic):
-            return topic + '.processed'
-
-        def __missing__(self, topic):
-            result = self[topic] = mongo_normalized.Serializer(
-            )
-            return result
-
-    def __init__(self,  ending='processed', *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    """
+    This class is intended to subscribe to a single topic only.
+    """
+    def __init__(self, input_topic, output_topic, group_id,
+                 bootstrap_servers, consumer_config=None,
+                 producer_config=None, polling_duration=0.05,
+                 process_document):
+        self._input_topic = input_topic
+        self._output_topic = output_topic
+        self._group_id = group_id
+        self._bootstrap_servers = bootstrap_servers
+        self._consumer_config = consumer_config
+        self._producer_config = producer_config
+        self._polling_duration = polling_duration
+        self._process_document = process_document
+        self._producer_router = PublisherRouter(self._output_topic,
+                                                bootstrap_servers,
+                                                producer_config=self._producer_config)
+        super().__init__(
+            [self._input_topic],
+            self._bootstrap_servers,
+            self._group_id,
+            consumer_config=self._consumer_config,
+            polling_duration=self._polling_duration,
+            deserializer=msgpack.loads,
+            process_document=self._process_document
+        )
