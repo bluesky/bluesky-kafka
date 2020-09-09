@@ -1,5 +1,6 @@
 bluesky
 confluent-kafka
+databroker
 msgpack >=1.0.0
 msgpack-numpy
-suitcase-mongo
+suitcase-m`ongo

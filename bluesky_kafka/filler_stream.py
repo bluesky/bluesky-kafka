@@ -12,11 +12,16 @@ if bootstrap_servers is None:
     raise AttributeError("Environment variable KAFKA_BOOTSTRAP_SERVERS"
                          "must be set.")
 
-auto_offset_reset = "latest"
+
 # The BlueskyStream can only subscibe to one topic.
 input_topic = "csx.bluesky.documents"
 output_topic = "csx.bluesky.documents.filled"
 handlers = discover_handlers()
+
+
+def no_op(topic, name, doc):
+    return name, doc
+
 
 bluesky_stream = BlueskyStream(
     input_topic,
@@ -27,6 +32,7 @@ bluesky_stream = BlueskyStream(
     producer_config={"acks": 1, "enable.idempotence": False},
     polling_duration=1.0,
     handler_registry=handlers,
+    process_produce=no_op
 )
 
 
