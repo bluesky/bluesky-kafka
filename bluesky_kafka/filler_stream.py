@@ -5,7 +5,7 @@ import msgpack
 import msgpack_numpy as mpn
 
 from bluesky_kafka import BlueskyStream
-
+from databroker.core import discover_handlers
 
 bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
 if bootstrap_servers is None:
@@ -14,17 +14,19 @@ if bootstrap_servers is None:
 
 auto_offset_reset = "latest"
 # The BlueskyStream can only subscibe to one topic.
-topics = ["csx.bluesky.documents"]
-
+input_topic = "csx.bluesky.documents"
+output_topic = "csx.bluesky.documents.filled"
+handlers = discover_handlers()
 
 bluesky_stream = BlueskyStream(
-    topics=topics,
-    bootstrap_servers=bootstrap_servers,
+    input_topic,
+    output_topic,
     group_id="csx-filler-stream",
+    bootstrap_servers=bootstrap_servers,
     consumer_config={"auto.offset.reset": auto_offset_reset},
     producer_config={"acks": 1, "enable.idempotence": False},
     polling_duration=1.0,
-    deserializer=kafka_deserializer,
+    handler_registry=handlers,
 )
 
 
