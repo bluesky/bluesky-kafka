@@ -287,7 +287,6 @@ class PublisherRouter():
             try:
                 kafka_publisher(name_, doc_)
             except Exception as ex:
-                logger = logging.getLogger("nslsii")
                 logger.exception(
                     "an error occurred when %s published %s\nname: %s\ndoc %s",
                     kafka_publisher,
@@ -301,7 +300,7 @@ class PublisherRouter():
             cluster_metadata = kafka_publisher._producer.list_topics(
                 topic=topic, timeout=5.0
             )
-            logging.getLogger("nslsii").info(
+            logger.info(
                 "connected to Kafka broker(s): %s", cluster_metadata
             )
             return [handle_publisher_exceptions], []
@@ -312,8 +311,7 @@ class PublisherRouter():
             # we do rely on Kafka for storing documents we will need a more robust
             # response here.
             # TODO: improve exception handling for production
-            nslsii_logger = logging.getLogger("nslsii")
-            nslsii_logger.exception("%s failed to connect to Kafka", kafka_publisher)
+            logger.exception("%s failed to connect to Kafka", kafka_publisher)
 
             # documents will not be published to Kafka brokers
             return [], []
