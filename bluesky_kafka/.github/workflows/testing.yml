@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  schedule:
+      - cron: '00 4 * * *'  # daily at 4AM
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    services:
+      zookeeper:
+        image: docker.io/bitnami/zookeeper:latest
+        ports:
+          - 2181:2181
+        volumes:
+          - zookeeper_data:/bitnami
+        env:
+          ALLOW_ANONYMOUS_LOGIN: yes
+      kafka:
+        image: docker.io/bitnami/kafka:latest
+        ports:
+          - 9092:9092
+          - 29092:29092
+        volumes:
+          - kafka_data:/bitnami
+        env:
+          KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+          ALLOW_PLAINTEXT_LISTENER: yes
+          KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+          KAFKA_CFG_LISTENERS: PLAINTEXT://:29092,PLAINTEXT_HOST://:9092
+          KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+          KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: true
+
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8]
+
+      fail-fast: false
+    steps:
+
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install
+      shell: bash -l {0}
+      run: |
+        set -vxeuo pipefail
+        python -m pip install .
+        python -m pip install -r requirements-dev.txt
+        python -m pip list
+
+    - name: Test with pytest
+      shell: bash -l {0}
+      run: |
+        set -vxeuo pipefail
+        coverage run -m pytest -v
+        coverage report
