@@ -38,6 +38,7 @@ def test_publisher_and_consumer(kafka_bootstrap_servers):
 
     bluesky_publisher = Publisher(
         topic=topic,
+        key=f"{topic}.key",
         bootstrap_servers=kafka_bootstrap_servers,
         producer_config={
             "acks": 1,
