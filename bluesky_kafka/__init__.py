@@ -311,7 +311,7 @@ class BlueskyConsumer:
         self.consumer.subscribe(topics=topics)
         self.closed = False
 
-    def _poll(self, work_during_wait=None):
+    def _poll(self, *, continue_polling=None, work_during_wait=None):
         """
         This method defines the polling loop in which messages are pulled from
         one or more Kafka brokers and processed with self.process().
@@ -320,35 +320,54 @@ class BlueskyConsumer:
 
         Parameters
         ----------
+        continue_polling: function(), optional
+            a parameter-less function called before every call to Consumer.poll,
+            the intention is to allow an outside force to stop the Consumer
+
         work_during_wait : function(), optional
             a parameter-less function to be called between calls to Consumer.poll
-
         """
 
-        def no_work_during_wait():
-            # do nothing between message deliveries
-            pass
+        if continue_polling is None:
+
+            def never_stop_polling():
+                return True
+
+            continue_polling = never_stop_polling
 
         if work_during_wait is None:
+
+            def no_work_during_wait():
+                # do nothing between message deliveries
+                pass
+
             work_during_wait = no_work_during_wait
 
-        while True:
-            msg = self.consumer.poll(self.polling_duration)
-            if msg is None:
-                # no message was delivered
-                # do some work before polling again
-                work_during_wait()
-            elif msg.error():
-                logger.error("Kafka Consumer error: %s", msg.error())
-            else:
-                try:
-                    if self.process(msg) is False:
-                        logger.debug(
-                            "breaking out of polling loop after process(msg) returned False"
-                        )
-                        break
-                except Exception as exc:
-                    logger.exception(exc)
+        while continue_polling():
+            try:
+                msg = self.consumer.poll(self.polling_duration)
+                if msg is None:
+                    # no message was delivered
+                    # do some work before polling again
+                    work_during_wait()
+                elif msg.error():
+                    logger.error("Kafka Consumer error: %s", msg.error())
+                elif self.process(msg) is False:
+                    logger.warning(
+                        "breaking out of polling loop after process(msg) returned False"
+                    )
+                    break
+                else:
+                    # poll again
+                    pass
+            except KeyboardInterrupt as keyboard_interrupt:
+                logger.exception(keyboard_interrupt)
+                raise
+            except Exception as exc:
+                logger.exception(exc)
+
+        logger.warning("continue_polling() returned False")
+        self.stop()
 
     def process(self, msg):
         """
@@ -412,12 +431,16 @@ class BlueskyConsumer:
             continue_polling = self._process_document(self.consumer, topic, name, doc)
             return continue_polling
 
-    def start(self, work_during_wait=None):
+    def start(self, continue_polling=None, work_during_wait=None):
         """
         Start the polling loop.
 
         Parameters
         ----------
+        continue_polling: function(), optional
+            a parameter-less function called before every call to Consumer.poll,
+            the intention is to allow outside logic to stop the Consumer
+
         work_during_wait : function(), optional
             a parameter-less function to be called between calls to Consumer.poll
 
@@ -429,7 +452,7 @@ class BlueskyConsumer:
                 f"instance with {repr(self)}"
             )
         try:
-            self._poll(work_during_wait=work_during_wait)
+            self._poll(continue_polling=continue_polling, work_during_wait=work_during_wait)
         except Exception:
             self.stop()
             raise
