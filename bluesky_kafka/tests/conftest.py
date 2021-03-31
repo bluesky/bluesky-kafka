@@ -1,18 +1,18 @@
 from contextlib import contextmanager
-import multiprocessing
 import os
-import queue
 import tempfile
-import time
 
 import intake
 import numpy as np
 import pytest
 import yaml
 
-from bluesky_kafka import Publisher, RemoteDispatcher
 from bluesky.tests.conftest import RE  # noqa
 from ophyd.tests.conftest import hw  # noqa
+
+from bluesky_kafka import Publisher
+from bluesky_kafka.utils import create_topics, delete_topics
+
 
 TEST_TOPIC = "bluesky-kafka-test"
 TEST_TOPIC2 = "bluesky2-kafka-test"
@@ -48,6 +48,47 @@ def kafka_bootstrap_servers(request):
 
 
 @pytest.fixture(scope="function")
+def temporary_topics(kafka_bootstrap_servers):
+    """
+    Use this "factory as a fixture and context manager" to cleanly
+    create new topics and delete them after a test.
+
+    If `bootstrap_servers` is not specified to the factory function
+    then the `kafka_bootstrap_servers` fixture will be used.
+
+    Parameters
+    ----------
+    kafka_bootstrap_servers : pytest fixture
+        comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
+
+    """
+
+    @contextmanager
+    def _temporary_topics(topics, bootstrap_servers=None):
+        if bootstrap_servers is None:
+            bootstrap_servers = kafka_bootstrap_servers
+
+        try:
+            # delete existing requested topics
+            # this will delete any un-consumed messages
+            # the intention is to make tests repeatable by ensuring
+            # they always start with a topics having no "old" messages
+            delete_topics(
+                bootstrap_servers=bootstrap_servers, topics_to_delete=topics
+            )
+            create_topics(
+                bootstrap_servers=bootstrap_servers, topics_to_create=topics
+            )
+            yield topics
+        finally:
+            delete_topics(
+                bootstrap_servers=bootstrap_servers, topics_to_delete=topics
+            )
+
+    return _temporary_topics
+
+
+@pytest.fixture(scope="function")
 def publisher_factory(kafka_bootstrap_servers):
     """
     Use this "factory as a fixture" to create one or more Publishers in a test function.
@@ -74,7 +115,11 @@ def publisher_factory(kafka_bootstrap_servers):
     """
 
     def _publisher_factory(
-        topic, bootstrap_servers=None, key="pytest", producer_config=None, **kwargs,
+        topic,
+        bootstrap_servers=None,
+        key=None,
+        producer_config=None,
+        **kwargs,
     ):
         """
         Parameters
@@ -119,329 +164,6 @@ def publisher_factory(kafka_bootstrap_servers):
         )
 
     return _publisher_factory
-
-
-@pytest.fixture
-def dispatcher_factory(kafka_bootstrap_servers):
-    """
-    Use this "factory as a fixture" to create bluesky_kafka.RemoteDispatchers
-    in a test function or fixture.
-
-    Parameters
-    ----------
-    kafka_bootstrap_servers: pytest fixture (str)
-        comma-separated list of host:port
-
-    Returns
-    -------
-    _dispatcher_factory : function(topics, group_id, bootstrap_servers, consumer_config, **kwargs)
-        factory function returning bluesky_kafka.RemoteDispatcher instances constructed with
-        the specified arguments
-    """
-
-    def _dispatcher_factory(
-        topics,
-        group_id="pytest",
-        bootstrap_servers=None,
-        consumer_config=None,
-        **kwargs,
-    ):
-        """
-        Construct and return a bluesky_kafka.RemoteDispatcher with the specified arguments.
-
-        Parameters
-        ----------
-        topics: list of str, required
-            the underlying Kafka consumer will subscribe to the specified topics
-        group_id: str, optional
-            the underlying Kafka consumer will have the specified group_id, "pytest" by default
-        bootstrap_servers : str, optional
-            comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line;
-            default is the value of the pytest command line parameter --kafka-bootstrap-servers
-        consumer_config: dict, optional
-            the underlying Kafka consumer will be created with the specified configuration parameters;
-            it is recommended that consumer configuration include "auto.commit.interval.ms": 100
-        kwargs
-            kwargs will be passed to bluesky_kafka.RemoteDispatcher()
-
-        Returns
-        -------
-        remote_dispatcher : bluesky_kafka.RemoteDispatcher
-            instance of bluesky_kafka.RemoteDispatcher constructed with the specified arguments
-        """
-        if bootstrap_servers is None:
-            bootstrap_servers = kafka_bootstrap_servers
-
-        if consumer_config is None:
-            consumer_config = {
-                # it is important to set a short time interval
-                # for automatic commits or the Kafka broker may
-                # not be notified by the consumer that messages
-                # were received before the test ends; the result
-                # is that the Kafka broker will try to re-deliver
-                # those messages to the next consumer that subscribes
-                # to the same topic(s)
-                "auto.commit.interval.ms": 100,
-            }
-
-        remote_dispatcher = RemoteDispatcher(
-            topics=topics,
-            bootstrap_servers=bootstrap_servers,
-            group_id=group_id,
-            consumer_config=consumer_config,
-            **kwargs,
-        )
-        return remote_dispatcher
-
-    return _dispatcher_factory
-
-
-@pytest.fixture(scope="function")
-def consumer_process_factory(kafka_bootstrap_servers):
-    """
-    Use this "factory as a fixture" to create multiprocessing.Process running
-    a Kafka consumer polling loop in a test function.
-
-    Parameters
-    ----------
-    kafka_bootstrap_servers: pytest fixture (str)
-        comma-separated list of host:port
-
-    Returns
-    -------
-    _consumer_process_factory :
-            function(consumer_factory, topics, group_id, consumer_config, document_queue, **kwargs)
-        factory function returning a multiprocessing.Process that will run a Kafka
-        consumer polling loop
-
-    """
-
-    def _consumer_process_factory(
-        consumer_factory, topics, group_id, consumer_config, document_queue, **kwargs
-    ):
-        """
-        Parameters
-        ----------
-        consumer_factory : function(topics, group_id, consumer_config, **kwargs)
-            a factory function (or callable) returning a BlueskyConsumer-like object
-        topics : list of str, required
-            the underlying Kafka consumer will subscribe to the specified topics
-        group_id : str, optional
-            the underlying Kafka consumer will have the specified group_id, "pytest" by default
-        consumer_config : dict, optional
-            the underlying Kafka consumer will be created with the specified configuration parameters
-        document_queue : multiprocessing.Queue
-            the underlying Kafka consumer will place documents it receives in this queue
-        kwargs
-            kwargs will be passed to the consumer_factory to be used in constructing the
-            underlying Kafka consumer
-
-        Returns
-        -------
-        document_queue: multiprocessing.Queue
-            this queue will contain bluesky (name, document) pairs that were delivered
-            to the underlying Kafka consumer
-        """
-        if consumer_config is None:
-            consumer_config = {
-                # it is important to set a short time interval
-                # for automatic commits or the Kafka broker may
-                # not be notified by the consumer that messages
-                # were received before the test ends; the result
-                # is that the Kafka broker will try to re-deliver
-                # those messages to the next consumer that subscribes
-                # to the same topic(s)
-                "auto.commit.interval.ms": 100,
-            }
-
-        # this function will run in the external process created below
-        def start_consumer_with_queue(document_queue_):
-            logger = multiprocessing.get_logger()
-            logger.warning("constructing consumer process with inter-process queue")
-
-            def put_document_in_queue(consumer, topic, name, doc):
-                logger.warning("BlueskyConsumer putting %s in queue", name)
-                document_queue_.put((name, doc))
-
-            # it is important the BlueskyConsumer be
-            # constructed in the external process
-            bluesky_consumer_ = consumer_factory(
-                topics=topics,
-                bootstrap_servers=kafka_bootstrap_servers,
-                group_id=group_id,
-                consumer_config=consumer_config,
-                process_document=put_document_in_queue,
-                **kwargs,
-            )
-            # consume messages published by a Kafka broker
-            bluesky_consumer_.start()
-
-        # create an external process for the bluesky_kafka.BlueskyConsumer polling loop
-        # but do not start it, the client of this function will start the process
-        consumer_process = multiprocessing.Process(
-            target=start_consumer_with_queue, args=(document_queue,), daemon=True,
-        )
-
-        return consumer_process
-
-    return _consumer_process_factory
-
-
-@pytest.fixture(scope="function")
-def remote_dispatcher_process_factory(dispatcher_factory):
-    def _remote_dispatcher_process_factory(
-        topics, group_id, consumer_config, document_queue, **kwargs
-    ):
-        # this function will run in the external process created below
-        def start_remote_dispatcher_with_queue(document_queue_):
-            logger = multiprocessing.get_logger()
-
-            def put_document_in_queue(name, doc):
-                logger.warning("putting %s in queue", name)
-                document_queue_.put((name, doc))
-
-            # it is important the RemoteDispatcher be
-            # constructed inside the external process
-            remote_dispatcher_ = dispatcher_factory(
-                topics=topics,
-                group_id=group_id,
-                consumer_config=consumer_config,
-                **kwargs,
-            )
-            # consume messages published by a Kafka broker
-            remote_dispatcher_.subscribe(put_document_in_queue)
-            remote_dispatcher_.start()
-
-        # create an external process for the bluesky_kafka.RemoteDispatcher polling loop
-        # do not start it, the client of this function will start the process
-        remote_dispatcher_process = multiprocessing.Process(
-            target=start_remote_dispatcher_with_queue,
-            args=(document_queue,),
-            daemon=True,
-        )
-
-        return remote_dispatcher_process
-
-    return _remote_dispatcher_process_factory
-
-
-@pytest.fixture(scope="function")
-def external_process_document_queue():
-    """
-    This is a pytest "factory as a fixture" intended to be used for
-    testing that Kafka messages containing bluesky documents are
-    produced and consumed.
-
-    It returns
-        a factory function that returns
-            a context manager that sets up and tears down
-                a daemon multiprocessing.Process running
-                    a Kafka consumer polling loop that inserts documents into
-                        a multiprocessing.Queue
-
-    Usage:
-        def test_kafka_messages(external_process_document_queue):
-
-            with external_process_document_queue(
-                topics=["topic_1", "topic_2", ...]
-            ) as document_queue:
-                ... set up a Kafka Producer ...
-
-                ... produce documents with Kafka ...
-
-                published_documents = get_all_documents_from_queue(document_queue)
-
-                ... assert expected results ...
-
-    Returns
-    -------
-    _external_process_document_queue: contextmanager
-        a context manager that sets up and tears down a multiprocessing.Process
-        intended to run a Kafka consumer of some kind appending documents published
-        by a Kafka broker to a multiprocessing.Queue
-    """
-
-    @contextmanager
-    def _external_process_document_queue(
-        topics,
-        group_id="pytest",
-        consumer_config=None,
-        process_factory=consumer_process_factory,
-        **kwargs,
-    ):
-        """
-        This function is a context manager that sets up and tears down a
-        multiprocessing.Process running some kind of Kafka consumer which
-        places documents published by a Kafka broker in a multiprocessing.Queue.
-
-        Parameters
-        ----------
-        topics : list of str, required
-            the underlying Kafka consumer will subscribe to the specified topics
-        group_id : str, optional
-            the underlying Kafka consumer will have the specified group_id, "pytest" by default
-        consumer_config : dict, optional
-            the underlying Kafka consumer will be created with the specified configuration parameters
-        process_factory : function(topics, group_id, consumer_config, document_queue, **kwargs), optional
-            a factory function returning a multiprocessing.Queue that runs a Kafka consumer
-        kwargs
-            kwargs will be passed to bluesky_kafka.RemoteDispatcher.__init__()
-
-        Yields
-        -------
-        document_queue: multiprocessing.Queue
-            this queue will contain bluesky (name, document) pairs that were
-            delivered as messages with the specified topics to a Kafka consumer
-        """
-        document_queue = multiprocessing.Queue()
-
-        process = process_factory(
-            topics=topics,
-            group_id=group_id,
-            consumer_config=consumer_config,
-            document_queue=document_queue,
-            **kwargs,
-        )
-        process.start()
-        # it is important to give the process time to start
-        # less than 10 seconds has not been enough
-        time.sleep(10)
-
-        try:
-            yield document_queue
-        finally:
-            process.terminate()
-            process.join()
-
-    return _external_process_document_queue
-
-
-def get_all_documents_from_queue(document_queue):
-    """
-    Get all bluesky (name, document) pairs placed in a multiprocessing.Queue.
-
-    The queue will be read until it is empty. The intention is that no Kafka
-    (name, document) pairs will be added to the queue while this function runs.
-
-    Parameters
-    ----------
-    document_queue : multiprocessing.Queue
-        a multiprocessing.Queue yielded by external_process_document_queue
-
-    Returns
-    -------
-    documents : list
-        a list of all (name, document) pairs read from the specified queue
-    """
-    documents = list()
-    while True:
-        try:
-            name, doc = document_queue.get(timeout=1)
-            documents.append((name, doc))
-        except queue.Empty:
-            break
-
-    return documents
 
 
 @pytest.fixture(scope="function")
