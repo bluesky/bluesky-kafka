@@ -2,8 +2,8 @@
 bluesky-kafka
 ===============================
 
-.. image:: https://img.shields.io/travis/bluesky/bluesky-kafka.svg
-        :target: https://travis-ci.org/bluesky/bluesky-kafka
+.. image:: https://github.com/bluesky/bluesky-kafka/actions/workflows/tests.yml/badge.svg
+        :target: https://github.com/bluesky/bluesky-kafka/actions
 
 .. image:: https://img.shields.io/pypi/v/bluesky-kafka.svg
         :target: https://pypi.python.org/pypi/bluesky-kafka
