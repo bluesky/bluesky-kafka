@@ -20,6 +20,10 @@ mpn.patch()
 logger = logging.getLogger(name="bluesky.kafka")
 
 
+class BlueskyKafkaException(BaseException):
+    pass
+
+
 def default_delivery_report(err, msg):
     """
     Called once for each message produced to indicate delivery result.
@@ -88,7 +92,7 @@ class Publisher:
         permanently failed.
     flush_on_stop_doc : bool, optional
         False by default, set to True to flush() the underlying Kafka Producer when a stop
-        document is received.
+        document is published.
     serializer : function, optional
         Function to serialize data. Default is pickle.dumps.
 
@@ -158,7 +162,8 @@ class Publisher:
         Parameters
         ----------
         timeout: float, optional
-            maximum time to wait before timing out, -1 for inifinte timeout, default is 5.0
+            maximum time in seconds to wait before timing out, -1 for infinite timeout,
+            default is 5.0s
 
         Returns
         -------
@@ -171,7 +176,7 @@ class Publisher:
         """
         Publish the specified name and document as a Kafka message.
 
-        Flush the Producer on every stop document. This guarantees
+        Flushing the Producer on every stop document guarantees
         that _at the latest_ all documents for a run will be delivered
         to the broker(s) at the end of the run. Without this flush
         the documents for a short run may wait for some time to be
@@ -192,7 +197,7 @@ class Publisher:
             "topic: '%s'\n"
             "key:   '%s'\n"
             "name:  '%s'\n"
-            "doc:   %s",
+            "doc:    %s",
             self.topic,
             self._key,
             name,
@@ -204,7 +209,7 @@ class Publisher:
             value=self._serializer((name, doc)),
             on_delivery=self.on_delivery,
         )
-        if name == "stop" and self._flush_on_stop_doc:
+        if self._flush_on_stop_doc and name == "stop":
             self.flush()
 
     def flush(self):
@@ -221,7 +226,7 @@ class Publisher:
 
 class BlueskyConsumer:
     """
-    Process Bluesky documents received over the network from a Kafka server.
+    Processes Bluesky documents received from a Kafka server.
 
     There is no default configuration. A reasonable configuration for production is
         consumer_config={
@@ -231,7 +236,7 @@ class BlueskyConsumer:
     Parameters
     ----------
     topics : list of str
-        List of topics as strings such as ["topic-1", "topic-2"]
+        List of existing_topics as strings such as ["topic-1", "topic-2"]
     bootstrap_servers : str
         Comma-delimited list of Kafka server addresses as a string
         such as ``'broker1:9092,broker2:9092,127.0.0.1:9092'``
@@ -258,13 +263,13 @@ class BlueskyConsumer:
     >>> consumer = BlueskyConsumer(
     >>>         topics=["abc.bluesky.documents", "xyz.bluesky.documents"],
     >>>         bootstrap_servers='localhost:9092',
-    >>>         group_id="print-document-group",
+    >>>         group_id="print.document.group",
     >>>         consumer_config={
-    >>>             "auto.offset.reset": "latest"
+    >>>             "auto.offset.reset": "latest"  # consume messages published after this consumer starts
     >>>         }
     >>>         process_document=lambda consumer, topic, name, doc: print(doc)
     >>>    )
-    >>> consumer.start()  # runs until interrupted
+    >>> bluesky_consumer.start(continue_polling=continue_polling)  # runs until continue_polling() returns False
     """
 
     def __init__(
@@ -303,7 +308,8 @@ class BlueskyConsumer:
             self._consumer_config["bootstrap.servers"] = bootstrap_servers
 
         logger.debug(
-            "BlueskyConsumer configuration:\n%s", self._consumer_config,
+            "BlueskyConsumer configuration:\n%s",
+            self._consumer_config,
         )
         logger.debug("subscribing to Kafka topic(s): %s", topics)
 
@@ -311,7 +317,7 @@ class BlueskyConsumer:
         self.consumer.subscribe(topics=topics)
         self.closed = False
 
-    def _poll(self, work_during_wait=None):
+    def _poll(self, *, continue_polling=None, work_during_wait=None):
         """
         This method defines the polling loop in which messages are pulled from
         one or more Kafka brokers and processed with self.process().
@@ -320,35 +326,54 @@ class BlueskyConsumer:
 
         Parameters
         ----------
+        continue_polling: function(), optional
+            a parameter-less function called before every call to Consumer.poll,
+            the intention is to allow an outside force to stop the Consumer
+
         work_during_wait : function(), optional
             a parameter-less function to be called between calls to Consumer.poll
-
         """
 
-        def no_work_during_wait():
-            # do nothing between message deliveries
-            pass
+        if continue_polling is None:
+
+            def never_stop_polling():
+                return True
+
+            continue_polling = never_stop_polling
 
         if work_during_wait is None:
+
+            def no_work_during_wait():
+                # do nothing between message deliveries
+                pass
+
             work_during_wait = no_work_during_wait
 
-        while True:
-            msg = self.consumer.poll(self.polling_duration)
-            if msg is None:
-                # no message was delivered
-                # do some work before polling again
-                work_during_wait()
-            elif msg.error():
-                logger.error("Kafka Consumer error: %s", msg.error())
-            else:
-                try:
-                    if self.process(msg) is False:
-                        logger.debug(
-                            "breaking out of polling loop after process(msg) returned False"
-                        )
-                        break
-                except Exception as exc:
-                    logger.exception(exc)
+        while continue_polling():
+            try:
+                msg = self.consumer.poll(self.polling_duration)
+                if msg is None:
+                    # no message was delivered
+                    # do some work before polling again
+                    work_during_wait()
+                elif msg.error():
+                    logger.error("Kafka Consumer error: %s", msg.error())
+                elif self.process(msg) is False:
+                    logger.info(
+                        "breaking out of polling loop after process(msg) returned False"
+                    )
+                    break
+                else:
+                    # poll again
+                    pass
+            except KeyboardInterrupt as keyboard_interrupt:
+                logger.exception(keyboard_interrupt)
+                raise
+            except Exception as exc:
+                logger.exception(exc)
+
+        logger.warning("continue_polling() returned False")
+        self.stop()
 
     def process(self, msg):
         """
@@ -412,12 +437,16 @@ class BlueskyConsumer:
             continue_polling = self._process_document(self.consumer, topic, name, doc)
             return continue_polling
 
-    def start(self, work_during_wait=None):
+    def start(self, continue_polling=None, work_during_wait=None):
         """
         Start the polling loop.
 
         Parameters
         ----------
+        continue_polling: function(), optional
+            a parameter-less function called before every call to Consumer.poll,
+            the intention is to allow outside logic to stop the Consumer
+
         work_during_wait : function(), optional
             a parameter-less function to be called between calls to Consumer.poll
 
@@ -429,7 +458,9 @@ class BlueskyConsumer:
                 f"instance with {repr(self)}"
             )
         try:
-            self._poll(work_during_wait=work_during_wait)
+            self._poll(
+                continue_polling=continue_polling, work_during_wait=work_during_wait
+            )
         except Exception:
             self.stop()
             raise
@@ -532,12 +563,16 @@ class RemoteDispatcher(Dispatcher):
         self.process(DocumentNames[name], document)
         return True
 
-    def start(self, work_during_wait=None):
+    def start(self, continue_polling=None, work_during_wait=None):
         """
         Start the BlueskyConsumer polling loop.
 
         Parameters
         ----------
+        continue_polling: function(), optional
+            a parameter-less function called before every call to Consumer.poll,
+            the intention is to allow outside logic to stop the Consumer
+
         work_during_wait : function()
             optional function to be called inside the polling loop between polls
         """
@@ -548,7 +583,9 @@ class RemoteDispatcher(Dispatcher):
                 f"instance with {repr(self)}"
             )
         try:
-            self._bluesky_consumer.start(work_during_wait=work_during_wait)
+            self._bluesky_consumer.start(
+                continue_polling=continue_polling, work_during_wait=work_during_wait
+            )
         finally:
             self.stop()
 

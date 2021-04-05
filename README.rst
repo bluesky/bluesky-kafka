@@ -2,8 +2,8 @@
 bluesky-kafka
 ===============================
 
-.. image:: https://img.shields.io/travis/bluesky/bluesky-kafka.svg
-        :target: https://travis-ci.org/bluesky/bluesky-kafka
+.. image:: https://github.com/bluesky/bluesky-kafka/actions/workflows/tests.yml/badge.svg
+        :target: https://github.com/bluesky/bluesky-kafka/actions
 
 .. image:: https://img.shields.io/pypi/v/bluesky-kafka.svg
         :target: https://pypi.python.org/pypi/bluesky-kafka
@@ -32,6 +32,14 @@ v0.3.0 (2020-09-03)
 * rewrote RemoteDispatcher to use BlueskyConsumer
 * changed default serialization method to MessagePack
 
+upcoming changes
+................
+* added utils.py
+* added BlueskyKafkaException
+* broke tests into multiple files
+* simplified produce/consume tests to run in one process
+* configured live logging in pytest.ini
+
 Test
 ----
 
@@ -50,6 +58,12 @@ Run tests:
 
   $ cd bluesky-kafka
   $ pytest
+
+Optionally increase logging output to the console by specifying a logging level:
+
+::
+
+  $ pytest --log-cli-level=DEBUG
 
 Run a Mongo Consumer Group
 --------------------------
