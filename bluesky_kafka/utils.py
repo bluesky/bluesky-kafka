@@ -11,7 +11,7 @@ from bluesky_kafka import BlueskyKafkaException
 log = logging.getLogger("bluesky.kafka")
 
 
-def get_cluster_metadata(bootstrap_servers):
+def get_cluster_metadata(bootstrap_servers, timeout=10):
     """
     Return cluster metadata for the cluster specified by bootstrap_servers.
 
@@ -19,17 +19,19 @@ def get_cluster_metadata(bootstrap_servers):
     ----------
     bootstrap_servers: str
         comma-delimited string of Kafka broker host:port, for example "localhost:9092"
+    timeout: float
+        maximum time to wait for a connection to a Kafka broker, 10s by default
 
     Returns
     -------
         confluent_kafka.admin.ClusterMetadata
     """
     kafka_producer = Producer({"bootstrap.servers": bootstrap_servers})
-    cluster_metadata = kafka_producer.list_topics()
+    cluster_metadata = kafka_producer.list_topics(timeout=timeout)
     return cluster_metadata
 
 
-def list_topics(bootstrap_servers):
+def list_topics(bootstrap_servers, timeout=10):
     """
     Return the topics dictionary from cluster metadata.
 
@@ -37,12 +39,14 @@ def list_topics(bootstrap_servers):
     ----------
     bootstrap_servers: str
         comma-delimited string of Kafka broker host:port, for example "localhost:9092"
-
+    timeout: float
+        maximum time to wait for a connection to a Kafka broker, 10s by default
+    
     Returns
     -------
         dictionary of topic name -> TopicMetadata
     """
-    cluster_metadata = get_cluster_metadata(bootstrap_servers)
+    cluster_metadata = get_cluster_metadata(bootstrap_servers, timeout=timeout)
     return cluster_metadata.topics
 
 
