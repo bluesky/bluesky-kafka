@@ -2,8 +2,36 @@ import re
 
 import pytest
 
+from confluent_kafka.cimpl import KafkaException
+
 from bluesky_kafka import BlueskyKafkaException
-from bluesky_kafka.utils import create_topics, delete_topics, list_topics
+from bluesky_kafka.utils import get_cluster_metadata, create_topics, delete_topics, list_topics
+
+
+def test_get_cluster_metadata_no_broker():
+    """
+    Test the default 10s timeout for get_cluster_metadata().
+
+    The default behavior for confluent_kakfa.Producer.list_topics() is no timeout,
+    which means it will hang forever if no connection can be made to a broker.
+    """
+    with pytest.raises(KafkaException):
+        get_cluster_metadata(
+            bootstrap_servers="1.1.1.1:9092"
+        )
+
+
+def test_list_topics_no_broker():
+    """
+    Test the default 10s timeout for list_topics().
+
+    The default behavior for confluent_kakfa.Producer.list_topics() is no timeout,
+    which means it will hang forever if no connection can be made to a broker.
+    """
+    with pytest.raises(KafkaException):
+        list_topics(
+            bootstrap_servers="1.1.1.1:9092"
+        )
 
 
 def test_create_topics(kafka_bootstrap_servers):
