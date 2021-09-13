@@ -73,17 +73,11 @@ def temporary_topics(kafka_bootstrap_servers):
             # this will delete any un-consumed messages
             # the intention is to make tests repeatable by ensuring
             # they always start with a topics having no "old" messages
-            delete_topics(
-                bootstrap_servers=bootstrap_servers, topics_to_delete=topics
-            )
-            create_topics(
-                bootstrap_servers=bootstrap_servers, topics_to_create=topics
-            )
+            delete_topics(bootstrap_servers=bootstrap_servers, topics_to_delete=topics)
+            create_topics(bootstrap_servers=bootstrap_servers, topics_to_create=topics)
             yield topics
         finally:
-            delete_topics(
-                bootstrap_servers=bootstrap_servers, topics_to_delete=topics
-            )
+            delete_topics(bootstrap_servers=bootstrap_servers, topics_to_delete=topics)
 
     return _temporary_topics
 
@@ -115,11 +109,7 @@ def publisher_factory(kafka_bootstrap_servers):
     """
 
     def _publisher_factory(
-        topic,
-        bootstrap_servers=None,
-        key=None,
-        producer_config=None,
-        **kwargs,
+        topic, bootstrap_servers=None, key=None, producer_config=None, **kwargs,
     ):
         """
         Parameters
