@@ -1,3 +1,25 @@
+"""
+    Most bluesky-kafka tests require a Kafka broker.
+
+    Start Kafka and Zookeeper like this:
+      $ sudo docker-compose -f scripts/bitnami-kafka-docker-compose.yml up
+    Remove Kafka and Zookeeper containers like this:
+      $ sudo docker ps -a -q
+      78485383ca6f
+      8a80fb4a385f
+      $ sudo docker stop 78485383ca6f 8a80fb4a385f
+      78485383ca6f
+      8a80fb4a385f
+      $ sudo docker rm 78485383ca6f 8a80fb4a385f
+      78485383ca6f
+      8a80fb4a385f
+    Or remove ALL containers like this:
+      $ sudo docker stop $(sudo docker ps -a -q)
+      $ sudo docker rm $(sudo docker ps -a -q)
+    Use this in difficult cases to remove *all traces* of docker containers:
+      $ sudo docker system prune -a
+"""
+
 import logging
 import pickle
 
