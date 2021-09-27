@@ -5,7 +5,12 @@ import pytest
 from confluent_kafka.cimpl import KafkaException
 
 from bluesky_kafka import BlueskyKafkaException
-from bluesky_kafka.utils import get_cluster_metadata, create_topics, delete_topics, list_topics
+from bluesky_kafka.utils import (
+    get_cluster_metadata,
+    create_topics,
+    delete_topics,
+    list_topics,
+)
 
 
 def test_get_cluster_metadata_no_broker():
@@ -16,9 +21,7 @@ def test_get_cluster_metadata_no_broker():
     which means it will hang forever if no connection can be made to a broker.
     """
     with pytest.raises(KafkaException):
-        get_cluster_metadata(
-            bootstrap_servers="1.1.1.1:9092"
-        )
+        get_cluster_metadata(bootstrap_servers="1.1.1.1:9092")
 
 
 def test_list_topics_no_broker():
@@ -29,9 +32,7 @@ def test_list_topics_no_broker():
     which means it will hang forever if no connection can be made to a broker.
     """
     with pytest.raises(KafkaException):
-        list_topics(
-            bootstrap_servers="1.1.1.1:9092"
-        )
+        list_topics(bootstrap_servers="1.1.1.1:9092")
 
 
 def test_create_topics(kafka_bootstrap_servers):
@@ -88,8 +89,7 @@ def test_create_topics_name_failure(kafka_bootstrap_servers):
             match=re.escape("failed to create topic(s) ['topic.a!']"),
         ):
             create_topics(
-                bootstrap_servers=kafka_bootstrap_servers,
-                topics_to_create=new_topics,
+                bootstrap_servers=kafka_bootstrap_servers, topics_to_create=new_topics,
             )
 
         all_topics = set(list_topics(bootstrap_servers=kafka_bootstrap_servers).keys())
