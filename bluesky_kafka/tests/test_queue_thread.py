@@ -5,19 +5,24 @@ import threading
 import time as ttime
 import uuid
 
+from typing import Callable
 from unittest.mock import Mock
+
+import pytest
+
+from confluent_kafka.cimpl import KafkaException
 
 from bluesky.plans import count
 from event_model import sanitize_doc
 
 from bluesky_kafka import BlueskyKafkaException
 from bluesky_kafka.tools.queue_thread import (
-    build_and_start_kafka_publisher_thread,
-    start_kafka_publisher_thread,
+    build_kafka_publisher_queue_and_thread,
+    _start_kafka_publisher_thread,
 )
 
 
-def test_build_and_start_kafka_publisher_thread(
+def test_build_kafka_publisher_queue_and_thread(
     kafka_bootstrap_servers,
     temporary_topics,
     consume_documents_from_kafka_until_first_stop_document,
@@ -52,21 +57,22 @@ def test_build_and_start_kafka_publisher_thread(
     with temporary_topics(topics=[f"{beamline_name}.bluesky.runengine.documents"]) as (
         beamline_topic,
     ):
-        (
-            kafka_publisher_queue,
-            kafka_publisher_thread_exit_event,
-        ) = build_and_start_kafka_publisher_thread(
+        publisher_queue_thread_details = build_kafka_publisher_queue_and_thread(
             topic=beamline_topic,
             bootstrap_servers=kafka_bootstrap_servers,
             producer_config={},
-            #     "acks": "all",
-            #     "enable.idempotence": False,
-            #     "request.timeout.ms": 1000,
-            # },
         )
 
-        assert isinstance(kafka_publisher_queue, queue.Queue)
-        assert isinstance(kafka_publisher_thread_exit_event, threading.Event)
+        assert isinstance(publisher_queue_thread_details.publisher_queue, queue.Queue)
+        assert isinstance(
+            publisher_queue_thread_details.publisher_thread, threading.Thread
+        )
+        assert isinstance(
+            publisher_queue_thread_details.publisher_thread_stop_event, threading.Event,
+        )
+        assert isinstance(
+            publisher_queue_thread_details.put_on_publisher_queue, Callable
+        )
 
         published_bluesky_documents = []
 
@@ -77,12 +83,7 @@ def test_build_and_start_kafka_publisher_thread(
 
         RE.subscribe(store_published_document)
 
-        # put each document published by the RunEngine
-        # on the kafka_publisher_queue
-        def put_document_on_publisher_queue(name, doc):
-            kafka_publisher_queue.put((name, doc))
-
-        RE.subscribe(put_document_on_publisher_queue)
+        RE.subscribe(publisher_queue_thread_details.put_on_publisher_queue)
 
         # all documents created by this plan are expected
         # to be published as Kafka messages
@@ -117,12 +118,11 @@ def test_build_and_start_kafka_publisher_thread(
         )
 
 
-def test_no_beamline_topic(caplog, kafka_bootstrap_servers, RE):
+def test_no_topic(caplog, kafka_bootstrap_servers, RE):
     """ Test the case of a topic that does not exist in the Kafka broker.
 
-    If the beamline Kafka topic does not exist then an exception
-    should be raised and handled by writing an exception message
-    to the bluesky_kafka logger.
+    If the topic does not exist a BlueskyKafkaException
+    should be raised. In addition an ERROR should be logged.
 
     Parameters
     ----------
@@ -134,27 +134,24 @@ def test_no_beamline_topic(caplog, kafka_bootstrap_servers, RE):
         bluesky RunEngine
     """
 
-    with caplog.at_level(level=logging.ERROR, logger="bluesky_kafka"):
-        # use a random string as the beamline name so topics will not be duplicated across tests
-        beamline_name = str(uuid.uuid4())[:8]
-        beamline_topic = f"{beamline_name}.bluesky.runengine.documents"
-        build_and_start_kafka_publisher_thread(
-            topic=beamline_topic,
+    with pytest.raises(BlueskyKafkaException), caplog.at_level(
+        level=logging.ERROR, logger="bluesky_kafka"
+    ):
+        # use a random string so topics will not be duplicated across tests
+        topic = str(uuid.uuid4())[:8]
+        build_kafka_publisher_queue_and_thread(
+            topic=topic,
             bootstrap_servers=kafka_bootstrap_servers,
             producer_config={},
-            #     "acks": "all",
-            #     "enable.idempotence": False,
-            #     "request.timeout.ms": 1000,
-            # },
         )
 
-        assert (
-            f"topic `{beamline_topic}` does not exist on Kafka broker(s)" in caplog.text
-        )
+    assert f"topic `{topic}` does not exist on Kafka broker(s)" in caplog.text
 
 
-def test_subscribe_kafka_publisher(caplog, temporary_topics, RE):
+def test__subscribe_kafka_publisher(caplog, temporary_topics, RE):
     """Test exception handling when a bluesky_kafka.Publisher raises an exception.
+
+    The publisher thread should not terminate if bluesky_kafka.Publisher raises.
 
     Parameters
     ----------
@@ -164,22 +161,16 @@ def test_subscribe_kafka_publisher(caplog, temporary_topics, RE):
         creates and cleans up temporary Kafka topics for testing
     RE: pytest fixture
         bluesky RunEngine
-
     """
 
-    # use a random string as the beamline name so topics will not be duplicated across tests
-    beamline_name = str(uuid.uuid4())[:8]
-    with temporary_topics(topics=[f"{beamline_name}.bluesky.runengine.documents"]) as (
-        beamline_topic,
+    # use a random string so topics will not be duplicated across tests
+    with temporary_topics(topics=[str(uuid.uuid4())[:8]]) as (
+        topic,
     ), caplog.at_level(logging.ERROR, logger="bluesky_kafka"):
 
         publisher_queue = queue.Queue()
         mock_kafka_publisher = Mock(side_effect=BlueskyKafkaException())
-        (
-            kafka_publisher_queue,
-            kafka_publisher_thread,
-            kafka_publisher_thread_stop_event,
-        ) = start_kafka_publisher_thread(
+        publisher_queue_thread_details = _start_kafka_publisher_thread(
             publisher_queue=publisher_queue,
             publisher=mock_kafka_publisher,
             publisher_queue_timeout=1,
@@ -195,16 +186,15 @@ def test_subscribe_kafka_publisher(caplog, temporary_topics, RE):
             ttime.sleep(1)
 
         # stop the polling loop
-        kafka_publisher_thread_stop_event.set()
-        kafka_publisher_thread.join()
+        publisher_queue_thread_details.publisher_thread_stop_event.set()
+        publisher_queue_thread_details.publisher_thread.join()
 
         # the logging output should contain 2 ERROR log records
         # with thread name starting with "kafka-publisher-thread-",
         # one for the start document, one for the stop document
         kafka_publisher_thread_log_records = [
             log_record
-            for log_record
-            in caplog.records
+            for log_record in caplog.records
             if log_record.threadName.startswith("kafka-publisher-thread-")
         ]
         assert len(kafka_publisher_thread_log_records) == 2
@@ -226,40 +216,15 @@ def test_subscribe_kafka_publisher(caplog, temporary_topics, RE):
 def test_publisher_with_no_broker(RE, hw):
     """Test the case of no Kafka broker.
 
-    In this case build_and_start_kafka_publisher_thread
-    should not raise an exception, but the returned
-    publisher queue should be None.
+    In this case a confluent_kafka.cimpl.KafkaException is raised.
     """
 
-    beamline_name = str(uuid.uuid4())[:8]
-    (
-        kafka_publisher_queue,
-        kafka_publisher_thread_exit_event,
-    ) = build_and_start_kafka_publisher_thread(
-        topic=beamline_name,
-        # specify a bootstrap server that does not exist
-        bootstrap_servers="100.100.100.100:9092",
-        producer_config={},
-        #     "acks": "all",
-        #     "enable.idempotence": False,
-        #     "request.timeout.ms": 1000,
-        # },
-        publisher_queue_timeout=1,
-    )
-
-    # in the case of no Kafka broker the publisher queue is None
-    assert kafka_publisher_queue is None
-
-    published_bluesky_documents = []
-
-    # store all documents published directly by the RunEngine
-    # to verify the expected documents were generated
-    def store_published_document(name, document):
-        published_bluesky_documents.append((name, document))
-
-    RE.subscribe(store_published_document)
-
-    RE(count([hw.det1]))
-
-    # the RunEngine should have published 4 documents
-    assert len(published_bluesky_documents) == 4
+    with pytest.raises(KafkaException):
+        beamline_name = str(uuid.uuid4())[:8]
+        kafka_publisher_queue_thread_details = build_kafka_publisher_queue_and_thread(
+            topic=beamline_name,
+            # specify a bootstrap server that does not exist
+            bootstrap_servers="100.100.100.100:9092",
+            producer_config={},
+            publisher_queue_timeout=1,
+        )
