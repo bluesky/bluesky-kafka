@@ -1,4 +1,26 @@
-import logging
+"""
+    Most bluesky-kafka tests require a Kafka broker.
+
+    Start Kafka and Zookeeper like this:
+      $ cd scripts
+      $ bash start_kafka.sh
+    Stop Kafka and Zookeeper with Ctrl-C.
+    Remove Kafka and Zookeeper containers like this:
+      $ sudo docker ps -a -q
+      78485383ca6f
+      8a80fb4a385f
+      $ sudo docker stop 78485383ca6f 8a80fb4a385f
+      78485383ca6f
+      8a80fb4a385f
+      $ sudo docker rm 78485383ca6f 8a80fb4a385f
+      78485383ca6f
+      8a80fb4a385f
+    Or remove ALL containers like this:
+      $ sudo docker stop $(sudo docker ps -a -q)
+      $ sudo docker rm $(sudo docker ps -a -q)
+    Use this in difficult cases to remove *all traces* of docker containers:
+      $ sudo docker system prune -a
+"""
 import pickle
 
 import msgpack
@@ -12,15 +34,18 @@ from event_model import sanitize_doc
 from bluesky_kafka import Publisher, BlueskyConsumer, RemoteDispatcher
 
 
-test_log = logging.getLogger("bluesky.kafka.test")
-
-
 @pytest.mark.parametrize(
     "serializer, deserializer",
     [(pickle.dumps, pickle.loads), (msgpack.packb, msgpack.unpackb)],
 )
 def test_publisher_and_consumer(
-    kafka_bootstrap_servers, temporary_topics, publisher_factory, hw, serializer, deserializer
+    kafka_bootstrap_servers,
+    temporary_topics,
+    publisher_factory,
+    consume_documents_from_kafka_until_first_stop_document,
+    hw,
+    serializer,
+    deserializer,
 ):
     """Test publishing and consuming bluesky documents in Kafka messages.
 
@@ -50,7 +75,7 @@ def test_publisher_and_consumer(
             topic=topic,
             key=f"{topic}.key",
             flush_on_stop_doc=True,
-            serializer=serializer
+            serializer=serializer,
         )
 
         published_bluesky_documents = []
@@ -78,47 +103,9 @@ def test_publisher_and_consumer(
         # documents: start, descriptor, event, stop
         assert len(published_bluesky_documents) == 4
 
-        consumed_bluesky_documents = []
-
-        # this function stores all documents bluesky_consumer
-        # gets from the Kafka broker in a list
-        def store_consumed_document(consumer, topic, name, document):
-            consumed_bluesky_documents.append((name, document))
-
-        bluesky_consumer = BlueskyConsumer(
-            topics=[topic],
-            bootstrap_servers=kafka_bootstrap_servers,
-            group_id=f"{topic}.consumer.group",
-            consumer_config={
-                # it is important to set a short time interval
-                # for automatic commits or the Kafka broker may
-                # not be notified by the consumer that messages
-                # were received before the test ends; the result
-                # is that the Kafka broker will try to re-deliver
-                # those messages to the next consumer that subscribes
-                # to the same topic(s)
-                "auto.commit.interval.ms": 100,
-                # this consumer is intended to read messages that
-                # have already been published, so it is necessary
-                # to specify "earliest" here
-                "auto.offset.reset": "earliest",
-            },
-            process_document=store_consumed_document,
-            polling_duration=1.0,
-            deserializer=deserializer,
-        )
-
-        # this function returns False to end the bluesky_consumer polling loop
-        def until_first_stop_document():
-            assert len(consumed_bluesky_documents) <= len(published_bluesky_documents)
-            if "stop" in [name for name, _ in consumed_bluesky_documents]:
-                return False
-            else:
-                return True
-
-        # start() will return when 'until_first_stop_document' returns False
-        bluesky_consumer.start(
-            continue_polling=until_first_stop_document,
+        # retrieve the documents published as Kafka messages
+        consumed_bluesky_documents = consume_documents_from_kafka_until_first_stop_document(
+            kafka_topic=topic, deserializer=deserializer
         )
 
         assert len(published_bluesky_documents) == len(consumed_bluesky_documents)
@@ -146,7 +133,12 @@ def test_publisher_and_consumer(
     [(pickle.dumps, pickle.loads), (msgpack.packb, msgpack.unpackb)],
 )
 def test_publisher_and_remote_dispatcher(
-    kafka_bootstrap_servers, temporary_topics, publisher_factory, hw, serializer, deserializer
+    kafka_bootstrap_servers,
+    temporary_topics,
+    publisher_factory,
+    hw,
+    serializer,
+    deserializer,
 ):
     """Test publishing and dispatching bluesky documents in Kafka messages.
 
@@ -176,7 +168,7 @@ def test_publisher_and_remote_dispatcher(
             topic=topic,
             key=f"{topic}.key",
             flush_on_stop_doc=True,
-            serializer=serializer
+            serializer=serializer,
         )
 
         published_bluesky_documents = []
@@ -209,14 +201,6 @@ def test_publisher_and_remote_dispatcher(
             bootstrap_servers=kafka_bootstrap_servers,
             group_id=f"{topic}.consumer.group",
             consumer_config={
-                # it is important to set a short time interval
-                # for automatic commits or the Kafka broker may
-                # not be notified by the consumer that messages
-                # were received before the test ends; the result
-                # is that the Kafka broker will try to re-deliver
-                # those messages to the next consumer that subscribes
-                # to the same topic(s)
-                "auto.commit.interval.ms": 100,
                 # this consumer is intended to read messages that
                 # have already been published, so it is necessary
                 # to specify "earliest" here
@@ -244,9 +228,7 @@ def test_publisher_and_remote_dispatcher(
                 return True
 
         # start() will return when 'until_first_stop_document' returns False
-        remote_dispatcher.start(
-            continue_polling=until_first_stop_document,
-        )
+        remote_dispatcher.start(continue_polling=until_first_stop_document,)
 
         assert len(published_bluesky_documents) == len(dispatched_bluesky_documents)
 

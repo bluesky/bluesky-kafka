@@ -1,0 +1,1 @@
+sudo docker-compose -f bitnami-kafka-docker-compose.yml up

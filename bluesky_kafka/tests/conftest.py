@@ -1,6 +1,7 @@
-from contextlib import contextmanager
 import os
 import tempfile
+
+from contextlib import contextmanager
 
 import intake
 import numpy as np
@@ -10,7 +11,7 @@ import yaml
 from bluesky.tests.conftest import RE  # noqa
 from ophyd.tests.conftest import hw  # noqa
 
-from bluesky_kafka import Publisher
+from bluesky_kafka import BlueskyConsumer, Publisher
 from bluesky_kafka.utils import create_topics, delete_topics
 
 
@@ -73,17 +74,11 @@ def temporary_topics(kafka_bootstrap_servers):
             # this will delete any un-consumed messages
             # the intention is to make tests repeatable by ensuring
             # they always start with a topics having no "old" messages
-            delete_topics(
-                bootstrap_servers=bootstrap_servers, topics_to_delete=topics
-            )
-            create_topics(
-                bootstrap_servers=bootstrap_servers, topics_to_create=topics
-            )
+            delete_topics(bootstrap_servers=bootstrap_servers, topics_to_delete=topics)
+            create_topics(bootstrap_servers=bootstrap_servers, topics_to_create=topics)
             yield topics
         finally:
-            delete_topics(
-                bootstrap_servers=bootstrap_servers, topics_to_delete=topics
-            )
+            delete_topics(bootstrap_servers=bootstrap_servers, topics_to_delete=topics)
 
     return _temporary_topics
 
@@ -115,11 +110,7 @@ def publisher_factory(kafka_bootstrap_servers):
     """
 
     def _publisher_factory(
-        topic,
-        bootstrap_servers=None,
-        key=None,
-        producer_config=None,
-        **kwargs,
+        topic, bootstrap_servers=None, key=None, producer_config=None, **kwargs,
     ):
         """
         Parameters
@@ -164,6 +155,99 @@ def publisher_factory(kafka_bootstrap_servers):
         )
 
     return _publisher_factory
+
+
+@pytest.fixture(scope="function")
+def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_servers):
+    """Use this fixture to consume Kafka messages containing bluesky (name, document) tuples.
+
+    This fixture will construct a BlueskyConsumer and run its polling loop. When the first
+    stop document is encountered the consumer polling loop will terminate so the test function
+    can continue.
+
+    Parameters
+    ----------
+    kafka_bootstrap_servers : pytest fixture
+        comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
+
+    Returns
+    -------
+    _consume_documents_from_kafka: function(topic, bootstrap_servers=None, **bluesky_consumer_kwargs) -> List[(name, document)]
+        calling this function will consume Kafka messages and place the (name, document)
+        tuples into a list; when the first stop document is encountered the consumer
+        polling loop will terminate and the document list will be returned
+    """
+
+    def _consume_documents_from_kafka(
+        kafka_topic, bootstrap_servers=None, **bluesky_consumer_kwargs
+    ):
+        """
+        Parameters
+        ----------
+        kafka_topic: str
+            Kafka messages with this topic will be consumed
+        bootstrap_servers: str
+            Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``;
+            default is the value of the pytest command line parameter --kafka-bootstrap-servers
+        bluesky_consumer_kwargs:
+            allows polling_duration and deserializer to be passed the the BlueskyConsumer
+
+        Returns
+        -------
+         consumed_bluesky_documents: list
+             list of (name, document) tuples delivered by Kafka
+        """
+        if bootstrap_servers is None:
+            bootstrap_servers = kafka_bootstrap_servers
+
+        consumed_bluesky_documents = []
+
+        def store_consumed_document(consumer, topic, name, document):
+            """This function appends to a list all documents received by the consumer.
+
+            Parameters
+            ----------
+            consumer: bluesky_kafka.BlueskyConsumer
+                unused
+            topic: str
+                unused
+            name: str
+                bluesky document name, such as "start", "descriptor", "event", etc
+            document: dict
+                dictionary of bluesky document data
+            """
+            consumed_bluesky_documents.append((name, document))
+
+        bluesky_consumer = BlueskyConsumer(
+            topics=[kafka_topic],
+            bootstrap_servers=bootstrap_servers,
+            group_id=f"{kafka_topic}.consumer.group",
+            consumer_config={
+                # this consumer is intended to read messages that
+                # have already been published, so it is necessary
+                # to specify "earliest" here
+                "auto.offset.reset": "earliest",
+            },
+            process_document=store_consumed_document,
+            **bluesky_consumer_kwargs,
+        )
+
+        def until_first_stop_document():
+            """
+            This function returns False to end the BlueskyConsumer polling loop after seeing
+            a "stop" document. Without something like this the polling loop will never end.
+            """
+            if "stop" in [name for name, _ in consumed_bluesky_documents]:
+                return False
+            else:
+                return True
+
+        # start() will return when 'until_first_stop_document' returns False
+        bluesky_consumer.start(continue_polling=until_first_stop_document,)
+
+        return consumed_bluesky_documents
+
+    return _consume_documents_from_kafka
 
 
 @pytest.fixture(scope="function")
