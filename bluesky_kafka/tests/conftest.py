@@ -172,22 +172,38 @@ def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_serve
 
     Returns
     -------
-    _consume_documents_from_kafka: function
+    _consume_documents_from_kafka: function(topic, bootstrap_servers=None, **bluesky_consumer_kwargs) -> List[(name, document)]
         calling this function will consume Kafka messages and place the (name, document)
         tuples into a list; when the first stop document is encountered the consumer
-        polling loop terminates so the test can proceed
+        polling loop will terminate and the document list will be returned
     """
 
-    def _consume_documents_from_kafka(kafka_topic, bootstrap_servers=None):
+    def _consume_documents_from_kafka(
+        kafka_topic, bootstrap_servers=None, **bluesky_consumer_kwargs
+    ):
+        """
+        Parameters
+        ----------
+        kafka_topic: str
+            Kafka messages with this topic will be consumed
+        bootstrap_servers: str
+            Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``;
+            default is the value of the pytest command line parameter --kafka-bootstrap-servers
+        bluesky_consumer_kwargs:
+            allows polling_duration and deserializer to be passed the the BlueskyConsumer
+
+        Returns
+        -------
+         consumed_bluesky_documents: list
+             list of (name, document) tuples delivered by Kafka
+        """
         if bootstrap_servers is None:
             bootstrap_servers = kafka_bootstrap_servers
 
         consumed_bluesky_documents = []
 
         def store_consumed_document(consumer, topic, name, document):
-            """
-            This function keeps a list of all documents the consumer
-            gets from the Kafka broker(s).
+            """This function appends to a list all documents received by the consumer.
 
             Parameters
             ----------
@@ -213,7 +229,7 @@ def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_serve
                 "auto.offset.reset": "earliest",
             },
             process_document=store_consumed_document,
-            polling_duration=1.0,
+            **bluesky_consumer_kwargs,
         )
 
         def until_first_stop_document():
