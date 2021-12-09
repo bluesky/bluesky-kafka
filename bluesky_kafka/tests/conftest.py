@@ -71,7 +71,7 @@ def temporary_topics(kafka_bootstrap_servers, broker_authorization_config):
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
-    test_broker_authorization_config: dict
+    broker_authorization_config: dict
         Kafka broker authentication parameters for the test broker
     """
 
@@ -127,7 +127,7 @@ def publisher_factory(kafka_bootstrap_servers, broker_authorization_config):
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
-    test_broker_authorization_config: dict
+    broker_authorization_config: dict
         Kafka broker authentication parameters for the test broker
 
     Returns
@@ -204,7 +204,7 @@ def consume_documents_from_kafka_until_first_stop_document(
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
-    test_broker_authorization_config: dict
+    broker_authorization_config: dict
         Kafka broker authentication parameters for the test broker
 
     Returns

@@ -22,7 +22,7 @@ def test_get_cluster_metadata_no_broker(broker_authorization_config):
 
     Parameters
     ----------
-    test_broker_authorization_config: dict
+    broker_authorization_config: dict
         Kafka broker authentication parameters for the test broker
     """
     with pytest.raises(KafkaException):
@@ -38,9 +38,10 @@ def test_list_topics_no_broker(broker_authorization_config):
 
     The default behavior for confluent_kakfa.Producer.list_topics() is no timeout,
     which means it will hang forever if no connection can be made to a broker.
+
     Parameters
     ----------
-    test_broker_authorization_config: dict
+    broker_authorization_config: dict
         Kafka broker authentication parameters for the test broker
     """
     with pytest.raises(KafkaException):
@@ -61,7 +62,7 @@ def test_create_topics(kafka_bootstrap_servers, broker_authorization_config):
     ----------
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of hostname:port, for example "localhost:9092"
-    test_broker_authorization_config: dict
+    broker_authorization_config: dict
         Kafka broker authentication parameters for the test broker
     """
 
@@ -101,7 +102,7 @@ def test_create_topics_name_failure(
     ----------
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of hostname:port, for example "localhost:9092"
-    test_broker_authorization_config: dict
+    broker_authorization_config: dict
         Kafka broker authentication parameters for the test broker
     """
 
@@ -140,9 +141,7 @@ def test_create_topics_name_failure(
     assert new_topics & all_topics == {"topic.b", "topic.c"}
 
 
-def test_delete_nonexisting_topic(
-    kafka_bootstrap_servers, broker_authorization_config
-):
+def test_delete_nonexisting_topic(kafka_bootstrap_servers, broker_authorization_config):
     """
     Trying to delete a topic that does not exist causes no error.
 
@@ -150,7 +149,7 @@ def test_delete_nonexisting_topic(
     ----------
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of hostname:port, for example "localhost:9092"
-    test_broker_authorization_config: dict
+    broker_authorization_config: dict
         Kafka broker authentication parameters for the test broker
     """
     delete_topics(

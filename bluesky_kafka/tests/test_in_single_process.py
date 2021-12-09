@@ -136,7 +136,7 @@ def test_publisher_and_consumer(
 )
 def test_publisher_and_remote_dispatcher(
     kafka_bootstrap_servers,
-        broker_authorization_config,
+    broker_authorization_config,
     temporary_topics,
     publisher_factory,
     hw,
@@ -151,7 +151,7 @@ def test_publisher_and_remote_dispatcher(
     ----------
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of Kafka broker host:port, for example "localhost:9092"
-    test_broker_authorization_config: dict
+    broker_authorization_config: dict
         Kafka broker authentication parameters for the test broker
     temporary_topics: context manager (pytest fixture)
         creates and cleans up temporary Kafka topics for testing
