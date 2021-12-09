@@ -136,7 +136,7 @@ def test_publisher_and_consumer(
 )
 def test_publisher_and_remote_dispatcher(
     kafka_bootstrap_servers,
-    test_broker_authorization_config,
+        broker_authorization_config,
     temporary_topics,
     publisher_factory,
     hw,
@@ -207,7 +207,7 @@ def test_publisher_and_remote_dispatcher(
             # to specify "earliest" here
             "auto.offset.reset": "earliest",
         }
-        consumer_config.update(test_broker_authorization_config)
+        consumer_config.update(broker_authorization_config)
 
         remote_dispatcher = RemoteDispatcher(
             topics=[topic],

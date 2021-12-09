@@ -24,7 +24,7 @@ from bluesky_kafka.tools.queue_thread import (
 
 def test_build_kafka_publisher_queue_and_thread(
     kafka_bootstrap_servers,
-    test_broker_authorization_config,
+        broker_authorization_config,
     temporary_topics,
     consume_documents_from_kafka_until_first_stop_document,
     RE,
@@ -63,7 +63,7 @@ def test_build_kafka_publisher_queue_and_thread(
         publisher_queue_thread_details = build_kafka_publisher_queue_and_thread(
             topic=beamline_topic,
             bootstrap_servers=kafka_bootstrap_servers,
-            producer_config=test_broker_authorization_config,
+            producer_config=broker_authorization_config,
         )
 
         assert isinstance(publisher_queue_thread_details.publisher_queue, queue.Queue)
@@ -125,7 +125,7 @@ def test_build_kafka_publisher_queue_and_thread(
 
 
 def test_no_topic(
-    caplog, kafka_bootstrap_servers, test_broker_authorization_config, RE
+    caplog, kafka_bootstrap_servers, broker_authorization_config, RE
 ):
     """Test the case of a topic that does not exist in the Kafka broker.
 
@@ -152,7 +152,7 @@ def test_no_topic(
         build_kafka_publisher_queue_and_thread(
             topic=topic,
             bootstrap_servers=kafka_bootstrap_servers,
-            producer_config=test_broker_authorization_config,
+            producer_config=broker_authorization_config,
         )
 
     assert f"topic `{topic}` does not exist on Kafka broker(s)" in caplog.text

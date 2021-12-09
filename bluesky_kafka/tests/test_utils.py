@@ -13,7 +13,7 @@ from bluesky_kafka.utils import (
 )
 
 
-def test_get_cluster_metadata_no_broker(test_broker_authorization_config):
+def test_get_cluster_metadata_no_broker(broker_authorization_config):
     """
     Test the default 10s timeout for bluesky_kafka.utils.get_cluster_metadata().
 
@@ -28,11 +28,11 @@ def test_get_cluster_metadata_no_broker(test_broker_authorization_config):
     with pytest.raises(KafkaException):
         get_cluster_metadata(
             bootstrap_servers="1.1.1.1:9092",
-            producer_config=test_broker_authorization_config,
+            producer_config=broker_authorization_config,
         )
 
 
-def test_list_topics_no_broker(test_broker_authorization_config):
+def test_list_topics_no_broker(broker_authorization_config):
     """
     Test the default 10s timeout for bluesky_kafka.utils.list_topics().
 
@@ -46,11 +46,11 @@ def test_list_topics_no_broker(test_broker_authorization_config):
     with pytest.raises(KafkaException):
         list_topics(
             bootstrap_servers="1.1.1.1:9092",
-            producer_config=test_broker_authorization_config,
+            producer_config=broker_authorization_config,
         )
 
 
-def test_create_topics(kafka_bootstrap_servers, test_broker_authorization_config):
+def test_create_topics(kafka_bootstrap_servers, broker_authorization_config):
     """
     Test creation and verification of new topics.
 
@@ -69,14 +69,14 @@ def test_create_topics(kafka_bootstrap_servers, test_broker_authorization_config
     delete_topics(
         bootstrap_servers=kafka_bootstrap_servers,
         topics_to_delete=new_topics,
-        admin_client_config=test_broker_authorization_config,
+        admin_client_config=broker_authorization_config,
     )
 
     try:
         create_topics(
             bootstrap_servers=kafka_bootstrap_servers,
             topics_to_create=new_topics,
-            admin_client_config=test_broker_authorization_config,
+            admin_client_config=broker_authorization_config,
         )
         all_topics = set(list_topics(bootstrap_servers=kafka_bootstrap_servers).keys())
     finally:
@@ -84,14 +84,14 @@ def test_create_topics(kafka_bootstrap_servers, test_broker_authorization_config
         delete_topics(
             bootstrap_servers=kafka_bootstrap_servers,
             topics_to_delete=new_topics,
-            admin_client_config=test_broker_authorization_config,
+            admin_client_config=broker_authorization_config,
         )
 
     assert new_topics & all_topics == new_topics
 
 
 def test_create_topics_name_failure(
-    kafka_bootstrap_servers, test_broker_authorization_config
+    kafka_bootstrap_servers, broker_authorization_config
 ):
     """
     Force a failure with an illegal topic name. Topics with
@@ -109,7 +109,7 @@ def test_create_topics_name_failure(
     delete_topics(
         bootstrap_servers=kafka_bootstrap_servers,
         topics_to_delete=new_topics,
-        admin_client_config=test_broker_authorization_config,
+        admin_client_config=broker_authorization_config,
     )
 
     try:
@@ -120,20 +120,20 @@ def test_create_topics_name_failure(
             create_topics(
                 bootstrap_servers=kafka_bootstrap_servers,
                 topics_to_create=new_topics,
-                admin_client_config=test_broker_authorization_config,
+                admin_client_config=broker_authorization_config,
             )
 
         all_topics = set(
             list_topics(
                 bootstrap_servers=kafka_bootstrap_servers,
-                producer_config=test_broker_authorization_config,
+                producer_config=broker_authorization_config,
             ).keys()
         )
     finally:
         delete_topics(
             bootstrap_servers=kafka_bootstrap_servers,
             topics_to_delete=new_topics,
-            admin_client_config=test_broker_authorization_config,
+            admin_client_config=broker_authorization_config,
         )
 
     # the topics with legal names will be created
@@ -141,7 +141,7 @@ def test_create_topics_name_failure(
 
 
 def test_delete_nonexisting_topic(
-    kafka_bootstrap_servers, test_broker_authorization_config
+    kafka_bootstrap_servers, broker_authorization_config
 ):
     """
     Trying to delete a topic that does not exist causes no error.
@@ -156,5 +156,5 @@ def test_delete_nonexisting_topic(
     delete_topics(
         bootstrap_servers=kafka_bootstrap_servers,
         topics_to_delete=["not.a.valid.topic!", "not.a.real.topic"],
-        admin_client_config=test_broker_authorization_config,
+        admin_client_config=broker_authorization_config,
     )
