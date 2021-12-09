@@ -11,7 +11,7 @@ from bluesky_kafka import BlueskyKafkaException
 log = logging.getLogger("bluesky.kafka")
 
 
-def get_cluster_metadata(bootstrap_servers, timeout=10):
+def get_cluster_metadata(bootstrap_servers, timeout=10, producer_config=None):
     """
     Return cluster metadata for the cluster specified by bootstrap_servers.
 
@@ -21,17 +21,23 @@ def get_cluster_metadata(bootstrap_servers, timeout=10):
         comma-delimited string of Kafka broker host:port, for example "localhost:9092"
     timeout: float
         maximum time to wait for a connection to a Kafka broker, 10s by default
+    producer_config: dict
+        optional dictionary of configuration parameters for the Producer used to query Kafka
 
     Returns
     -------
         confluent_kafka.admin.ClusterMetadata
     """
-    kafka_producer = Producer({"bootstrap.servers": bootstrap_servers})
+    if producer_config is None:
+        producer_config = {}
+
+    producer_config.update({"bootstrap.servers": bootstrap_servers})
+    kafka_producer = Producer(producer_config)
     cluster_metadata = kafka_producer.list_topics(timeout=timeout)
     return cluster_metadata
 
 
-def list_topics(bootstrap_servers, timeout=10):
+def list_topics(bootstrap_servers, timeout=10, producer_config=None):
     """
     Return the topics dictionary from cluster metadata.
 
@@ -41,12 +47,19 @@ def list_topics(bootstrap_servers, timeout=10):
         comma-delimited string of Kafka broker host:port, for example "localhost:9092"
     timeout: float
         maximum time to wait for a connection to a Kafka broker, 10s by default
-    
+    producer_config: dict
+        optional dictionary of configuration parameters for the Producer used to query Kafka
+
     Returns
     -------
         dictionary of topic name -> TopicMetadata
     """
-    cluster_metadata = get_cluster_metadata(bootstrap_servers, timeout=timeout)
+    if producer_config is None:
+        producer_config = {}
+
+    cluster_metadata = get_cluster_metadata(
+        bootstrap_servers, timeout=timeout, producer_config=producer_config
+    )
     return cluster_metadata.topics
 
 
@@ -57,15 +70,22 @@ def create_topics(
     replication_factor=1,
     max_checks=3,
     seconds_between_checks=1.0,
+    admin_client_config=None,
 ):
-    admin_client = AdminClient({"bootstrap.servers": bootstrap_servers})
+    if admin_client_config is None:
+        admin_client_config = {}
+
+    admin_client_config.update({"bootstrap.servers": bootstrap_servers})
+    admin_client = AdminClient(admin_client_config)
     log.debug(
-        "creating topics '%s' with num_partitions=%d replication_factor=%d max_checks=%d seconds_between_checks=%.1f",
+        "creating topics '%s' with num_partitions=%d replication_factor=%d max_checks=%d seconds_between_checks=%.1f "
+        "admin_client_config=%s",
         topics_to_create,
         num_partitions,
         replication_factor,
         max_checks,
         seconds_between_checks,
+        admin_client_config,
     )
 
     topics_to_create_set = set(topics_to_create)
@@ -129,13 +149,20 @@ def delete_topics(
     topics_to_delete,
     max_checks=3,
     seconds_between_checks=1.0,
+    admin_client_config=None,
 ):
+    if admin_client_config is None:
+        admin_client_config = {}
+
+    admin_client_config.update({"bootstrap.servers": bootstrap_servers})
+
     log.info(
-        "deleting topics '%s' from '%s' with max_checks=%d seconds_between_checks=%.1fs",
+        "deleting topics '%s' from '%s' with max_checks=%d seconds_between_checks=%.1fs admin_client_config=%s",
         topics_to_delete,
         bootstrap_servers,
         max_checks,
         seconds_between_checks,
+        admin_client_config,
     )
 
     topics_to_delete_set = set(topics_to_delete)
@@ -150,7 +177,7 @@ def delete_topics(
         )
     else:
         log.debug("deleting topics '%s'", existing_topics_to_delete_set)
-        admin_client = AdminClient({"bootstrap.servers": bootstrap_servers})
+        admin_client = AdminClient(admin_client_config)
         deleted_topics_to_futures = admin_client.delete_topics(
             topics=list(existing_topics_to_delete_set)
         )

@@ -24,6 +24,7 @@ from bluesky_kafka.tools.queue_thread import (
 
 def test_build_kafka_publisher_queue_and_thread(
     kafka_bootstrap_servers,
+    broker_authorization_config,
     temporary_topics,
     consume_documents_from_kafka_until_first_stop_document,
     RE,
@@ -41,6 +42,8 @@ def test_build_kafka_publisher_queue_and_thread(
     ----------
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of Kafka broker host:port, for example "kafka1:9092,kafka2:9092"
+    broker_authorization_config: dict
+        Kafka broker authentication parameters for the test broker
     temporary_topics: context manager (pytest fixture)
         creates and cleans up temporary Kafka topics for testing
     consume_documents_from_kafka_until_first_stop_document: pytest fixture
@@ -60,7 +63,7 @@ def test_build_kafka_publisher_queue_and_thread(
         publisher_queue_thread_details = build_kafka_publisher_queue_and_thread(
             topic=beamline_topic,
             bootstrap_servers=kafka_bootstrap_servers,
-            producer_config={},
+            producer_config=broker_authorization_config,
         )
 
         assert isinstance(publisher_queue_thread_details.publisher_queue, queue.Queue)
@@ -68,7 +71,8 @@ def test_build_kafka_publisher_queue_and_thread(
             publisher_queue_thread_details.publisher_thread, threading.Thread
         )
         assert isinstance(
-            publisher_queue_thread_details.publisher_thread_stop_event, threading.Event,
+            publisher_queue_thread_details.publisher_thread_stop_event,
+            threading.Event,
         )
         assert isinstance(
             publisher_queue_thread_details.put_on_publisher_queue, Callable
@@ -94,8 +98,10 @@ def test_build_kafka_publisher_queue_and_thread(
         assert len(published_bluesky_documents) == 4
 
         # retrieve the documents published as Kafka messages
-        consumed_bluesky_documents = consume_documents_from_kafka_until_first_stop_document(
-            kafka_topic=beamline_topic
+        consumed_bluesky_documents = (
+            consume_documents_from_kafka_until_first_stop_document(
+                kafka_topic=beamline_topic
+            )
         )
 
         assert len(published_bluesky_documents) == len(consumed_bluesky_documents)
@@ -118,8 +124,8 @@ def test_build_kafka_publisher_queue_and_thread(
         )
 
 
-def test_no_topic(caplog, kafka_bootstrap_servers, RE):
-    """ Test the case of a topic that does not exist in the Kafka broker.
+def test_no_topic(caplog, kafka_bootstrap_servers, broker_authorization_config, RE):
+    """Test the case of a topic that does not exist in the Kafka broker.
 
     If the topic does not exist a BlueskyKafkaException
     should be raised. In addition an ERROR should be logged.
@@ -130,6 +136,8 @@ def test_no_topic(caplog, kafka_bootstrap_servers, RE):
         logging output will be captured by this fixture
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of Kafka broker host:port, for example "kafka1:9092,kafka2:9092"
+    broker_authorization_config: dict
+        Kafka broker authentication parameters for the test broker
     RE: RunEngine (pytest fixture)
         bluesky RunEngine
     """
@@ -142,7 +150,7 @@ def test_no_topic(caplog, kafka_bootstrap_servers, RE):
         build_kafka_publisher_queue_and_thread(
             topic=topic,
             bootstrap_servers=kafka_bootstrap_servers,
-            producer_config={},
+            producer_config=broker_authorization_config,
         )
 
     assert f"topic `{topic}` does not exist on Kafka broker(s)" in caplog.text
@@ -164,9 +172,9 @@ def test__subscribe_kafka_publisher(caplog, temporary_topics, RE):
     """
 
     # use a random string so topics will not be duplicated across tests
-    with temporary_topics(topics=[str(uuid.uuid4())[:8]]) as (
-        topic,
-    ), caplog.at_level(logging.ERROR, logger="bluesky_kafka"):
+    with temporary_topics(topics=[str(uuid.uuid4())[:8]]) as (topic,), caplog.at_level(
+        logging.ERROR, logger="bluesky_kafka"
+    ):
 
         publisher_queue = queue.Queue()
         mock_kafka_publisher = Mock(side_effect=BlueskyKafkaException())

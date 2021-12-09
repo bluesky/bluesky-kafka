@@ -104,8 +104,10 @@ def test_publisher_and_consumer(
         assert len(published_bluesky_documents) == 4
 
         # retrieve the documents published as Kafka messages
-        consumed_bluesky_documents = consume_documents_from_kafka_until_first_stop_document(
-            kafka_topic=topic, deserializer=deserializer
+        consumed_bluesky_documents = (
+            consume_documents_from_kafka_until_first_stop_document(
+                kafka_topic=topic, deserializer=deserializer
+            )
         )
 
         assert len(published_bluesky_documents) == len(consumed_bluesky_documents)
@@ -134,6 +136,7 @@ def test_publisher_and_consumer(
 )
 def test_publisher_and_remote_dispatcher(
     kafka_bootstrap_servers,
+    broker_authorization_config,
     temporary_topics,
     publisher_factory,
     hw,
@@ -148,6 +151,8 @@ def test_publisher_and_remote_dispatcher(
     ----------
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of Kafka broker host:port, for example "localhost:9092"
+    broker_authorization_config: dict
+        Kafka broker authentication parameters for the test broker
     temporary_topics: context manager (pytest fixture)
         creates and cleans up temporary Kafka topics for testing
     publisher_factory: pytest fixture
@@ -196,16 +201,19 @@ def test_publisher_and_remote_dispatcher(
         # documents: start, descriptor, event, stop
         assert len(published_bluesky_documents) == 4
 
+        consumer_config = {
+            # this consumer is intended to read messages that
+            # have already been published, so it is necessary
+            # to specify "earliest" here
+            "auto.offset.reset": "earliest",
+        }
+        consumer_config.update(broker_authorization_config)
+
         remote_dispatcher = RemoteDispatcher(
             topics=[topic],
             bootstrap_servers=kafka_bootstrap_servers,
             group_id=f"{topic}.consumer.group",
-            consumer_config={
-                # this consumer is intended to read messages that
-                # have already been published, so it is necessary
-                # to specify "earliest" here
-                "auto.offset.reset": "earliest",
-            },
+            consumer_config=consumer_config,
             polling_duration=1.0,
             deserializer=deserializer,
         )
@@ -228,7 +236,9 @@ def test_publisher_and_remote_dispatcher(
                 return True
 
         # start() will return when 'until_first_stop_document' returns False
-        remote_dispatcher.start(continue_polling=until_first_stop_document,)
+        remote_dispatcher.start(
+            continue_polling=until_first_stop_document,
+        )
 
         assert len(published_bluesky_documents) == len(dispatched_bluesky_documents)
 
