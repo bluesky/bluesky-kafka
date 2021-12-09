@@ -49,7 +49,17 @@ def kafka_bootstrap_servers(request):
 
 
 @pytest.fixture(scope="function")
-def temporary_topics(kafka_bootstrap_servers):
+def test_broker_authorization_config():
+    return {
+        # "security.protocol": "SASL_PLAINTEXT",
+        # "sasl.mechanisms": "PLAIN",
+        # "sasl.username": "user",
+        # "sasl.password": "password",
+    }
+
+
+@pytest.fixture(scope="function")
+def temporary_topics(kafka_bootstrap_servers, test_broker_authorization_config):
     """
     Use this "factory as a fixture and context manager" to cleanly
     create new topics and delete them after a test.
@@ -61,30 +71,46 @@ def temporary_topics(kafka_bootstrap_servers):
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
-
+    test_broker_authorization_config: dict
+        Kafka broker authentication parameters for the test broker
     """
 
     @contextmanager
-    def _temporary_topics(topics, bootstrap_servers=None):
+    def _temporary_topics(topics, bootstrap_servers=None, admin_client_config=None):
         if bootstrap_servers is None:
             bootstrap_servers = kafka_bootstrap_servers
+
+        if admin_client_config is None:
+            admin_client_config = test_broker_authorization_config
 
         try:
             # delete existing requested topics
             # this will delete any un-consumed messages
             # the intention is to make tests repeatable by ensuring
             # they always start with a topics having no "old" messages
-            delete_topics(bootstrap_servers=bootstrap_servers, topics_to_delete=topics)
-            create_topics(bootstrap_servers=bootstrap_servers, topics_to_create=topics)
+            delete_topics(
+                bootstrap_servers=bootstrap_servers,
+                topics_to_delete=topics,
+                admin_client_config=admin_client_config,
+            )
+            create_topics(
+                bootstrap_servers=bootstrap_servers,
+                topics_to_create=topics,
+                admin_client_config=admin_client_config,
+            )
             yield topics
         finally:
-            delete_topics(bootstrap_servers=bootstrap_servers, topics_to_delete=topics)
+            delete_topics(
+                bootstrap_servers=bootstrap_servers,
+                topics_to_delete=topics,
+                admin_client_config=admin_client_config,
+            )
 
     return _temporary_topics
 
 
 @pytest.fixture(scope="function")
-def publisher_factory(kafka_bootstrap_servers):
+def publisher_factory(kafka_bootstrap_servers, test_broker_authorization_config):
     """
     Use this "factory as a fixture" to create one or more Publishers in a test function.
     If `bootstrap_servers` is not specified to the factory function then the `kafka_bootstrap_servers`
@@ -101,6 +127,8 @@ def publisher_factory(kafka_bootstrap_servers):
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
+    test_broker_authorization_config: dict
+        Kafka broker authentication parameters for the test broker
 
     Returns
     -------
@@ -110,7 +138,11 @@ def publisher_factory(kafka_bootstrap_servers):
     """
 
     def _publisher_factory(
-        topic, bootstrap_servers=None, key=None, producer_config=None, **kwargs,
+        topic,
+        bootstrap_servers=None,
+        key=None,
+        producer_config=None,
+        **kwargs,
     ):
         """
         Parameters
@@ -145,6 +177,7 @@ def publisher_factory(kafka_bootstrap_servers):
                 "enable.idempotence": False,
                 "request.timeout.ms": 1000,
             }
+            producer_config.update(test_broker_authorization_config)
 
         return Publisher(
             topic=topic,
@@ -158,7 +191,9 @@ def publisher_factory(kafka_bootstrap_servers):
 
 
 @pytest.fixture(scope="function")
-def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_servers):
+def consume_documents_from_kafka_until_first_stop_document(
+    kafka_bootstrap_servers, test_broker_authorization_config
+):
     """Use this fixture to consume Kafka messages containing bluesky (name, document) tuples.
 
     This fixture will construct a BlueskyConsumer and run its polling loop. When the first
@@ -169,6 +204,8 @@ def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_serve
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
+    test_broker_authorization_config: dict
+        Kafka broker authentication parameters for the test broker
 
     Returns
     -------
@@ -179,18 +216,23 @@ def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_serve
     """
 
     def _consume_documents_from_kafka(
-        kafka_topic, bootstrap_servers=None, **bluesky_consumer_kwargs
+        kafka_topic,
+        bootstrap_servers=None,
+        consumer_config=None,
+        **bluesky_consumer_kwargs,
     ):
         """
         Parameters
         ----------
         kafka_topic: str
             Kafka messages with this topic will be consumed
-        bootstrap_servers: str
+        bootstrap_servers: str, optional
             Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``;
             default is the value of the pytest command line parameter --kafka-bootstrap-servers
+        consumer_config: dict, optional
+            Dictionary of Kafka consumer configuration parameters
         bluesky_consumer_kwargs:
-            allows polling_duration and deserializer to be passed the the BlueskyConsumer
+            Allows polling_duration and deserializer to be passed the the BlueskyConsumer
 
         Returns
         -------
@@ -199,6 +241,15 @@ def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_serve
         """
         if bootstrap_servers is None:
             bootstrap_servers = kafka_bootstrap_servers
+
+        if consumer_config is None:
+            consumer_config = {
+                # this consumer is intended to read messages that
+                # have already been published, so it is necessary
+                # to specify "earliest" here
+                "auto.offset.reset": "earliest",
+            }
+            consumer_config.update(test_broker_authorization_config)
 
         consumed_bluesky_documents = []
 
@@ -222,12 +273,7 @@ def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_serve
             topics=[kafka_topic],
             bootstrap_servers=bootstrap_servers,
             group_id=f"{kafka_topic}.consumer.group",
-            consumer_config={
-                # this consumer is intended to read messages that
-                # have already been published, so it is necessary
-                # to specify "earliest" here
-                "auto.offset.reset": "earliest",
-            },
+            consumer_config=consumer_config,
             process_document=store_consumed_document,
             **bluesky_consumer_kwargs,
         )
@@ -243,7 +289,9 @@ def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_serve
                 return True
 
         # start() will return when 'until_first_stop_document' returns False
-        bluesky_consumer.start(continue_polling=until_first_stop_document,)
+        bluesky_consumer.start(
+            continue_polling=until_first_stop_document,
+        )
 
         return consumed_bluesky_documents
 
@@ -251,33 +299,40 @@ def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_serve
 
 
 @pytest.fixture(scope="function")
-def publisher(request, kafka_bootstrap_servers):
+def publisher(request, kafka_bootstrap_servers, test_broker_authorization_config):
+    # work with a single broker
+    producer_config = {
+        "acks": 1,
+        "enable.idempotence": False,
+        "request.timeout.ms": 5000,
+    }
+    producer_config.update(test_broker_authorization_config)
+
     return Publisher(
         topic=TEST_TOPIC,
         bootstrap_servers=kafka_bootstrap_servers,
         key="kafka-unit-test-key",
-        # work with a single broker
-        producer_config={
-            "acks": 1,
-            "enable.idempotence": False,
-            "request.timeout.ms": 5000,
-        },
+        producer_config=producer_config,
         flush_on_stop_doc=True,
     )
 
 
 @pytest.fixture(scope="function")
-def publisher2(request, kafka_bootstrap_servers):
+def publisher2(request, kafka_bootstrap_servers, test_broker_authorization_config):
+    # work with a single broker
+    producer_config = {
+        "acks": 1,
+        "enable.idempotence": False,
+        "request.timeout.ms": 5000,
+    }
+    producer_config.update(test_broker_authorization_config)
+
     return Publisher(
         topic=TEST_TOPIC2,
         bootstrap_servers=kafka_bootstrap_servers,
         key="kafka-unit-test-key",
         # work with a single broker
-        producer_config={
-            "acks": 1,
-            "enable.idempotence": False,
-            "request.timeout.ms": 5000,
-        },
+        producer_config=producer_config,
         flush_on_stop_doc=True,
     )
 
