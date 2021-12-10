@@ -2,6 +2,10 @@
 Release History
 ===============
 
+v0.7.0 (2021-12-09)
+...................
+* added producer configuration parameter support to functions in ``bluesky_kafka.utils.py``
+
 v0.6.0 (2021-10-08)
 ...................
 * added ``bluesky_kafka.tools.queue_thread.py``
