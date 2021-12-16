@@ -2,6 +2,10 @@
 Release History
 ===============
 
+v0.8.0 (2021-12-16)
+...................
+* change ``BlueskyKafkaException`` base class from ``BaseException`` to ``Exception``
+
 v0.7.0 (2021-12-09)
 ...................
 * added producer configuration parameter support to functions in ``bluesky_kafka.utils.py``
