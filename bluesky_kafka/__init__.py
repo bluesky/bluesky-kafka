@@ -20,7 +20,7 @@ mpn.patch()
 logger = logging.getLogger(name="bluesky.kafka")
 
 
-class BlueskyKafkaException(BaseException):
+class BlueskyKafkaException(Exception):
     pass
 
 
