@@ -203,7 +203,7 @@ def build_kafka_publisher_queue_and_thread(
 
     logger.info("connecting to Kafka broker(s): '%s'", bootstrap_servers)
     # verify the specified topic exists on the Kafka broker(s) before subscribing
-    topic_to_topic_metadata = list_topics(bootstrap_servers=bootstrap_servers)
+    topic_to_topic_metadata = list_topics(bootstrap_servers=bootstrap_servers, producer_config=producer_config)
     if topic in topic_to_topic_metadata:
         # since the topic exists, build a Publisher for the topic
         kafka_publisher = Publisher(
