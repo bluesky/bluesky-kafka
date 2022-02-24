@@ -608,9 +608,10 @@ class MongoConsumer(BlueskyConsumer):
         key, which in this case is the topic name.
         """
 
-        def __init__(self, mongo_uri, auth_source):
+        def __init__(self, mongo_uri, auth_source, tls):
             self._mongo_uri = mongo_uri
             self._auth_source = auth_source
+            self._tls = tls
 
         def get_database(self, topic):
             return topic.replace(".", "-")
@@ -627,16 +628,16 @@ class MongoConsumer(BlueskyConsumer):
                 + self.get_database(topic)
                 + "?authSource="
                 + self._auth_source,
+                tls=self._tls
             )
             return result
 
-    def __init__(self, mongo_uri, auth_source="admin", *args, **kwargs):
-        self._serializers = self.SerializerFactory(mongo_uri, auth_source)
+    def __init__(self, mongo_uri, auth_source="admin", tls=False, *args, **kwargs):
+        self._serializers = self.SerializerFactory(mongo_uri, auth_source, tls)
         super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
         result_name, result_doc = self._serializers[topic](name, doc)
         if name == "stop":
             self.consumer.commit(asynchronous=False)
-
         return True
