@@ -611,7 +611,7 @@ class MongoConsumer(BlueskyConsumer):
         def __init__(self, mongo_uri, auth_source, tls):
             self._mongo_uri = mongo_uri
             self._auth_source = auth_source
-            self._tls = tls
+            self._tls = "&tls=true" if tls else ""
 
         def get_database(self, topic):
             return topic.replace(".", "-")
@@ -622,13 +622,14 @@ class MongoConsumer(BlueskyConsumer):
                 + "/"
                 + self.get_database(topic)
                 + "?authSource="
-                + self._auth_source,
+                + self._auth_source
+                + self._tls,
                 self._mongo_uri
                 + "/"
                 + self.get_database(topic)
                 + "?authSource="
-                + self._auth_source,
-                tls=self._tls
+                + self._auth_source
+                + self._tls,
             )
             return result
 
