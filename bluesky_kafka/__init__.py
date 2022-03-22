@@ -608,35 +608,35 @@ class MongoConsumer(BlueskyConsumer):
         key, which in this case is the topic name.
         """
 
-        def __init__(self, mongo_uri, auth_source):
+        def __init__(self, mongo_uri, topic_database_map, auth_source, tls):
             self._mongo_uri = mongo_uri
+            self._topic_database_map = topic_database_map
             self._auth_source = auth_source
-
-        def get_database(self, topic):
-            return topic.replace(".", "-")
+            self._tls = "&tls=true" if tls else ""
 
         def __missing__(self, topic):
             result = self[topic] = mongo_normalized.Serializer(
                 self._mongo_uri
                 + "/"
-                + self.get_database(topic)
+                + self._topic_database_map[topic]
                 + "?authSource="
-                + self._auth_source,
+                + self._auth_source
+                + self._tls,
                 self._mongo_uri
                 + "/"
-                + self.get_database(topic)
+                + self._topic_database_map[topic]
                 + "?authSource="
-                + self._auth_source,
+                + self._auth_source
+                + self._tls,
             )
             return result
 
-    def __init__(self, mongo_uri, auth_source="admin", *args, **kwargs):
-        self._serializers = self.SerializerFactory(mongo_uri, auth_source)
+    def __init__(self, mongo_uri, topic_database_map, auth_source="admin", tls=False, *args, **kwargs):
+        self._serializers = self.SerializerFactory(mongo_uri, topic_database_map, auth_source, tls)
         super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
         result_name, result_doc = self._serializers[topic](name, doc)
         if name == "stop":
             self.consumer.commit(asynchronous=False)
-
         return True
