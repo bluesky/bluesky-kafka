@@ -633,8 +633,18 @@ class MongoConsumer(BlueskyConsumer):
             )
             return result
 
-    def __init__(self, mongo_uri, topic_database_map, auth_source="admin", tls=False, *args, **kwargs):
-        self._serializers = self.SerializerFactory(mongo_uri, topic_database_map, auth_source, tls)
+    def __init__(
+        self,
+        mongo_uri,
+        topic_database_map,
+        auth_source="admin",
+        tls=False,
+        *args,
+        **kwargs,
+    ):
+        self._serializers = self.SerializerFactory(
+            mongo_uri, topic_database_map, auth_source, tls
+        )
         super().__init__(*args, **kwargs)
 
     def process_document(self, topic, name, doc):
