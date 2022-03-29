@@ -209,6 +209,8 @@ class Publisher:
             value=self._serializer((name, doc)),
             on_delivery=self.on_delivery,
         )
+        # poll for delivery reports
+        self._producer.poll(0)
         if self._flush_on_stop_doc and name == "stop":
             self.flush()
 
