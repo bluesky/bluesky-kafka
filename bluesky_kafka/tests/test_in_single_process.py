@@ -71,10 +71,20 @@ def test_publisher_and_consumer(
         topics=[f"test.publisher.and.consumer.{serializer.__module__}"]
     ) as (topic,):
 
+        failed_deliveries = []
+        successful_deliveries = []
+
+        def on_delivery(err, msg):
+            if err is None:
+                successful_deliveries.append(msg)
+            else:
+                failed_deliveries.append((err, msg))
+
         bluesky_publisher = publisher_factory(
             topic=topic,
             key=f"{topic}.key",
             flush_on_stop_doc=True,
+            on_delivery=on_delivery,
             serializer=serializer,
         )
 
@@ -102,6 +112,10 @@ def test_publisher_and_consumer(
         # it is known that RE(count()) will produce four
         # documents: start, descriptor, event, stop
         assert len(published_bluesky_documents) == 4
+
+        # expect 4 successful deliveries and 0 failed deliveries
+        assert len(successful_deliveries) == 4
+        assert len(failed_deliveries) == 0
 
         # retrieve the documents published as Kafka messages
         consumed_bluesky_documents = (
