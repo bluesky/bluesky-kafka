@@ -2,6 +2,12 @@
 Release History
 ===============
 
+v0.9.0 (2022-04-05)
+...................
+* bug fix to ``list_topics``
+* add TLS configuration to MongoConsumer
+* poll for delivery reports after every message publication
+
 v0.8.0 (2021-12-16)
 ...................
 * change ``BlueskyKafkaException`` base class from ``BaseException`` to ``Exception``
