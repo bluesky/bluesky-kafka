@@ -58,7 +58,7 @@ topic_database_map = {'amx.bluesky.runengine.documents': 'amx-bluesky-documents'
 # new topics. The default value is 5000ms.
 mongo_consumer = MongoConsumer(
     mongo_uri,
-    topic_database_map
+    topic_database_map,
     tls=True,
     topics=topics,
     bootstrap_servers=bootstrap_servers,
