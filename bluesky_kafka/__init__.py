@@ -146,12 +146,15 @@ class Publisher:
         self._serializer = serializer
 
     def __str__(self):
+        safe_config = dict(self._producer_config)
+        if 'sasl.password' in safe_config:
+            safe_config['sasl.password'] = '****'
         return (
             "bluesky_kafka.Publisher("
             f"topic='{self.topic}',"
             f"key='{self._key}',"
             f"bootstrap_servers='{self._bootstrap_servers}'"
-            f"producer_config='{self._producer_config}'"
+            f"producer_config='{safe_config}'"
             ")"
         )
 
