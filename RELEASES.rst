@@ -2,6 +2,11 @@
 Release History
 ===============
 
+v0.9.1 (2022-07-28)
+...................
+* sanitize ``str(Publisher)`` output
+* fix a syntax error in ``mongo_normalized_consumer.py``
+
 v0.9.0 (2022-04-05)
 ...................
 * bug fix to ``list_topics``
