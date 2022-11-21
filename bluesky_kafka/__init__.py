@@ -6,6 +6,7 @@ import msgpack
 import msgpack_numpy as mpn
 
 from bluesky.run_engine import Dispatcher, DocumentNames
+from event_model import RunRouter
 from suitcase import mongo_normalized
 
 from ._version import get_versions
@@ -227,6 +228,103 @@ class Publisher:
             self._key,
         )
         self._producer.flush()
+
+
+# Most of this code was vendored from nslsii. We plan to update the
+# nslsii code to import this class.
+class PublisherRouter():
+    """
+    Each Publisher will publish documents from a single run to the
+    Kafka topic "<beamline_name>.bluesky.documents".
+    Parameters
+    ----------
+    topic: str
+        beamline name, for example "csx", to be used in building the
+        Kafka topic to which messages will be published
+    bootstrap_servers: str
+        Comma-delimited list of Kafka server addresses as a string such as ``'10.0.137.8:9092'``
+    producer_config: dict
+        dictionary of Kafka Producer configuration settings
+    handler_registry : dict, optional
+        This is passed to the Filler or whatever class is given in the
+        filler_class parametr below.
+        Maps each 'spec' (a string identifying a given type or external
+        resource) to a handler class.
+        A 'handler class' may be any callable with the signature::
+            handler_class(full_path, **resource_kwargs)
+        It is expected to return an object, a 'handler instance', which is also
+        callable and has the following signature::
+            handler_instance(**datum_kwargs)
+        As the names 'handler class' and 'handler instance' suggest, this is
+        typically implemented using a class that implements ``__init__`` and
+        ``__call__``, with the respective signatures. But in general it may be
+        any callable-that-returns-a-callable.
+    """
+    def __init__(
+        self,
+        topic,
+        bootstrap_servers,
+        producer_config=None,
+        handler_registry=None,
+    }:
+        self._topic = topic
+        self._bootstrap_servers = bootstrap_servers
+        self._producer_config = producer_config
+        self._handler_registry = handler_registry
+        self._run_router =  RunRouter(factories=[self.kafka_publisher_factory],
+                                      handler_registry=self.handler_registry)
+
+    def __call__(self, name, doc):
+        self._run_router(name, doc)
+
+    def kafka_publisher_factory(self, name, start_doc):
+        # create a Kafka Publisher for a single run
+        kafka_publisher = Publisher(
+            topic=self._topic,
+            bootstrap_servers=self._bootstrap_servers,
+            key=start_doc["uid"],
+            producer_config=self._producer_config,
+            flush_on_stop_doc=True,
+            serializer=partial(msgpack.dumps, default=mpn.encode),
+        )
+
+        def handle_publisher_exceptions(name_, doc_):
+            """
+            Do not let exceptions from the Kafka producer kill the RunEngine.
+            This is for testing and is not sufficient for Kafka in production.
+            TODO: improve exception handling for production
+            """
+            try:
+                kafka_publisher(name_, doc_)
+            except Exception as ex:
+                logger.exception(
+                    "an error occurred when %s published %s\nname: %s\ndoc %s",
+                    kafka_publisher,
+                    name_,
+                    doc_,
+                )
+
+        try:
+            # call Producer.list_topics to test if we can connect to a Kafka broker
+            # TODO: add list_topics method to KafkaPublisher
+            cluster_metadata = kafka_publisher._producer.list_topics(
+                topic=topic, timeout=5.0
+            )
+            logger.info(
+                "connected to Kafka broker(s): %s", cluster_metadata
+            )
+            return [handle_publisher_exceptions], []
+        # TODO: raise BlueskyException or similar from KafkaPublisher.list_topics
+        except Exception:
+            # For now failure to connect to a Kafka broker will not be considered a
+            # significant problem because we are not relying on Kafka. When and if
+            # we do rely on Kafka for storing documents we will need a more robust
+            # response here.
+            # TODO: improve exception handling for production
+            logger.exception("%s failed to connect to Kafka", kafka_publisher)
+
+            # documents will not be published to Kafka brokers
+            return [], []
 
 
 class BlueskyConsumer:
@@ -655,3 +753,77 @@ class MongoConsumer(BlueskyConsumer):
         if name == "stop":
             self.consumer.commit(asynchronous=False)
         return True
+
+
+class BlueskyStream(BlueskyConsumer):
+    """
+    This class is intended to subscribe to a single topic only.
+    If you pass in the handler_registry this class will fill and publish.
+    """
+    def __init__(self, input_topic, output_topic, group_id,
+                 bootstrap_servers, consumer_config=None,
+                 producer_config=None, polling_duration=0.05,
+                 process_produce=None, handler_registry=None):
+        self._input_topic = input_topic
+        self._output_topic = output_topic
+        self._group_id = group_id
+        self._bootstrap_servers = bootstrap_servers
+        self._consumer_config = consumer_config
+        self._producer_config = producer_config
+        self._polling_duration = polling_duration
+        self._process_produce = process_produce
+        self._handler_registry = handler_registry
+        self._producer_router = PublisherRouter(self._output_topic,
+                                                bootstrap_servers,
+                                                producer_config=self._producer_config
+                                                handler_registry=self._handler_registry)
+        super().__init__(
+            [self._input_topic],
+            self._bootstrap_servers,
+            self._group_id,
+            consumer_config=self._consumer_config,
+            polling_duration=self._polling_duration,
+            deserializer=msgpack.loads,
+        )
+
+        def process_produce(self, topic, name, doc):
+        """
+        Subclasses may override this method to process documents.
+        Alternatively a document-processing function can be specified at init time
+        and it will be called here. The function must have the same signature as
+        this method (except for the `self` parameter).
+
+        If this method returns False the BlueskyConsumer will break out of the
+        polling loop.
+
+        Parameters
+        ----------
+        topic : str
+            the Kafka topic of the message containing name and doc
+        name : str
+            bluesky document name: `start`, `descriptor`, `event`, etc.
+        doc : dict
+            bluesky document
+
+        Returns
+        -------
+        name : str
+            bluesky document name: `start`, `descriptor`, `event`, etc.
+        doc : dict
+            bluesky document
+        """
+        if self._process_document is None:
+            raise NotImplementedError(
+                "This class must either be subclassed to override the "
+                "process_document method, or have a process function passed "
+                "in at init time via the process_document parameter."
+            )
+        else:
+            name, doc = self._process_produce(self.consumer, topic, name, doc)
+            return name, doc
+
+        def process_document(self, topic, name, doc):
+            # TODO: Make this a kafka transaction.
+            name, doc = process_produce(topic, name, doc)
+            self._producer_router(name, doc)
+            return True
