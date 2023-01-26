@@ -1,19 +1,17 @@
 import os
 import tempfile
-
 from contextlib import contextmanager
 
 import intake
 import numpy as np
 import pytest
 import yaml
-
 from bluesky.tests.conftest import RE  # noqa
 from ophyd.tests.conftest import hw  # noqa
+from pytest_docker import docker_ip, docker_services
 
 from bluesky_kafka import BlueskyConsumer, Publisher
 from bluesky_kafka.utils import create_topics, delete_topics
-
 
 TEST_TOPIC = "bluesky-kafka-test"
 TEST_TOPIC2 = "bluesky2-kafka-test"
@@ -29,6 +27,16 @@ def pytest_addoption(parser):
         default="127.0.0.1:9092",
         help="comma-separated list of address:port for Kafka bootstrap servers",
     )
+
+
+@pytest.fixture(autouse=True, scope="session")
+def spin_docker(docker_ip, docker_services):
+    return docker_ip
+
+
+@pytest.fixture(scope="session")
+def docker_compose_file(pytestconfig):
+    return os.path.join(str(pytestconfig.rootdir), "bluesky_kafka", "tests", "docker-compose.yml")
 
 
 @pytest.fixture(scope="function")
@@ -191,9 +199,7 @@ def publisher_factory(kafka_bootstrap_servers, broker_authorization_config):
 
 
 @pytest.fixture(scope="function")
-def consume_documents_from_kafka_until_first_stop_document(
-    kafka_bootstrap_servers, broker_authorization_config
-):
+def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_servers, broker_authorization_config):
     """Use this fixture to consume Kafka messages containing bluesky (name, document) tuples.
 
     This fixture will construct a BlueskyConsumer and run its polling loop. When the first
