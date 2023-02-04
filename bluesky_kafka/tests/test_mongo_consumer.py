@@ -1,9 +1,7 @@
 from functools import partial
 import json
 import logging
-import multiprocessing
 import time
-import sys
 
 from dictdiffer import diff
 import pytest
@@ -165,7 +163,6 @@ def test_mongo_consumer(
         polling_duration=1.0,
         mongo_uri=mongo_uri,
     ) as document_queue:  # noqa
-
         # Run a plan to generate documents.
         (uid,) = RE(count([hw.det]), md=numpy_md)
 
@@ -232,7 +229,6 @@ def test_mongo_consumer_multi_topic(
         polling_duration=1.0,
         mongo_uri=mongo_uri,
     ) as document_queue:  # noqa
-
         # Run a plan to generate documents.
         (uid,) = RE(count([hw.det]), md=numpy_md)
 

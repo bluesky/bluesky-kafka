@@ -175,7 +175,6 @@ def test__subscribe_kafka_publisher(caplog, temporary_topics, RE):
     with temporary_topics(topics=[str(uuid.uuid4())[:8]]) as (topic,), caplog.at_level(
         logging.ERROR, logger="bluesky_kafka"
     ):
-
         publisher_queue = queue.Queue()
         mock_kafka_publisher = Mock(side_effect=BlueskyKafkaException())
         publisher_queue_thread_details = _start_kafka_publisher_thread(
@@ -229,7 +228,7 @@ def test_publisher_with_no_broker(RE, hw):
 
     with pytest.raises(KafkaException):
         beamline_name = str(uuid.uuid4())[:8]
-        kafka_publisher_queue_thread_details = build_kafka_publisher_queue_and_thread(
+        build_kafka_publisher_queue_and_thread(
             topic=beamline_name,
             # specify a bootstrap server that does not exist
             bootstrap_servers="100.100.100.100:9092",
