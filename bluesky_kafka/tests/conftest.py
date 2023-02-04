@@ -12,6 +12,8 @@ from bluesky.tests.conftest import RE  # noqa
 from ophyd.tests.conftest import hw  # noqa
 
 from bluesky_kafka import BlueskyConsumer, Publisher
+from bluesky_kafka.consume import BasicConsumer
+from bluesky_kafka.produce import BasicProducer
 from bluesky_kafka.utils import create_topics, delete_topics
 
 
@@ -107,6 +109,199 @@ def temporary_topics(kafka_bootstrap_servers, broker_authorization_config):
             )
 
     return _temporary_topics
+
+
+@pytest.fixture(scope="function")
+def basic_producer_factory(kafka_bootstrap_servers, broker_authorization_config):
+    """
+    Use this "factory as a fixture" to create one or more BasicProducers in a test function.
+    If `bootstrap_servers` is not specified to the factory function then the `kafka_bootstrap_servers`
+    fixture will be used. The `serializer` parameter can be passed through **kwargs of the factory function.
+
+    For example:
+
+        def test_something(basic_producer_factory):
+            basic_producer_abc = basic_producer_factory(topic="abc")
+            basic_producer_xyz = basic_producer_factory(topic="xyz", serializer=pickle.dumps)
+            ...
+
+    Parameters
+    ----------
+    kafka_bootstrap_servers : pytest fixture
+        comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
+    broker_authorization_config: dict
+        Kafka broker authentication parameters for the test broker
+
+    Returns
+    -------
+    _basic_producer_factory : function(topic, key, producer_config, **kwargs)
+        a factory function returning bluesky_kafka.produce.BasicProducer instances constructed with the
+        specified arguments
+    """
+
+    def _basic_producer_factory(
+        topic,
+        bootstrap_servers=None,
+        key=None,
+        producer_config=None,
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+        topic : str
+            Topic to which all messages will be published.
+        bootstrap_servers: sequence of str
+            List of Kafka broker addresses as strings such as ``["127.0.0.1:9092"]``;
+            default is the value of the pytest command line parameter --kafka-bootstrap-servers
+        key : str
+            Kafka "key" string. Specify a key to maintain message order. If None is specified
+            no ordering will be imposed on messages.
+        producer_config : dict, optional
+            Dictionary configuration information used to construct the underlying Kafka Producer.
+        **kwargs
+            **kwargs will be passed to bluesky_kafka.produce.BasicProducer() and may include on_delivery,
+            and serializer
+
+        Returns
+        -------
+        basic_producer : bluesky_kafka.produce.BasicProducer
+            a BasicProducer instance constructed with the specified arguments
+        """
+        if bootstrap_servers is None:
+            bootstrap_servers = kafka_bootstrap_servers.split(",")
+
+        if producer_config is None:
+            # this default configuration is not guaranteed
+            # to be generally appropriate
+            producer_config = {
+                "acks": 1,
+                "enable.idempotence": False,
+                "request.timeout.ms": 1000,
+            }
+            producer_config.update(broker_authorization_config)
+
+        return BasicProducer(
+            topic=topic,
+            key=key,
+            bootstrap_servers=bootstrap_servers,
+            producer_config=producer_config,
+            **kwargs,
+        )
+
+    return _basic_producer_factory
+
+
+@pytest.fixture(scope="function")
+def consume_kafka_messages(kafka_bootstrap_servers, broker_authorization_config):
+    """Use this fixture to consume the specified count of Kafka messages.
+
+    This fixture will construct a BasicConsumer and run its polling loop. When the specified
+    message count is reached the polling loop will terminate.
+
+    Parameters
+    ----------
+    kafka_bootstrap_servers : pytest fixture
+        comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
+    broker_authorization_config: dict
+        Kafka broker authentication parameters for the test broker
+
+    Returns
+    -------
+    _consume_kafka_messages: function(topic, bootstrap_servers=None, **basic_consumer_kwargs) -> List[object]
+        calling this function will consume Kafka messages and place the message "payloads"
+        into a list; when the expected number of messages have been consumed the consumer
+        polling loop will terminate and the payload list will be returned
+    """
+
+    def _consume_kafka_messages(
+        expected_message_count,
+        kafka_topic,
+        bootstrap_servers=None,
+        consumer_config=None,
+        **basic_consumer_kwargs,
+    ):
+        """
+        Parameters
+        ----------
+        expected_message_count: int
+            the number of messages to consume, must be greater than 0
+        kafka_topic: str
+            Kafka messages with this topic will be consumed
+        bootstrap_servers: str, optional
+            List of Kafka server addresses as strings such as ``["127.0.0.1:9092"]``;
+            default is the value of the pytest command line parameter --kafka-bootstrap-servers
+        consumer_config: dict, optional
+            Dictionary of Kafka consumer configuration parameters
+        basic_consumer_kwargs:
+            Allows polling_duration and deserializer to be passed the the BasicConsumer's __init__
+
+        Returns
+        -------
+         consumed_bluesky_documents: list
+             list of (name, document) tuples delivered by Kafka
+        """
+        if expected_message_count > 0:
+            pass
+        else:
+            raise ValueError(
+                f"'expected_message_count' was {expected_message_count}, but must be greater than 0"
+            )
+
+        if bootstrap_servers is None:
+            bootstrap_servers = kafka_bootstrap_servers.split(",")
+
+        if consumer_config is None:
+            consumer_config = {
+                # this consumer is intended to read messages that
+                # have already been published, so it is necessary
+                # to specify "earliest" here
+                "auto.offset.reset": "earliest",
+            }
+            consumer_config.update(broker_authorization_config)
+
+        consumed_messages = []
+
+        def store_consumed_message(consumer, topic, message):
+            """This function appends to a list all messages received by the consumer.
+
+            Parameters
+            ----------
+            consumer: bluesky_kafka.consume.BasicConsumer
+                unused
+            topic: str
+                unused
+            message: object
+                deserialized "value" of the Kafka message
+            """
+            consumed_messages.append(message)
+
+        basic_consumer = BasicConsumer(
+            topics=[kafka_topic],
+            bootstrap_servers=bootstrap_servers,
+            group_id=f"{kafka_topic}.basic.consumer.group",
+            consumer_config=consumer_config,
+            process_message=store_consumed_message,
+            **basic_consumer_kwargs,
+        )
+
+        def until_message_count_reached():
+            """
+            This function returns False to end the BasicConsumer polling loop after seeing
+            the expected number of messages. Without something like this the polling loop
+            will never end.
+            """
+            return len(consumed_messages) < expected_message_count
+
+        try:
+            # start() will return when 'until_message_count_reached' returns False
+            basic_consumer.start_polling(
+                continue_polling=until_message_count_reached,
+            )
+        finally:
+            return consumed_messages, basic_consumer
+
+    return _consume_kafka_messages
 
 
 @pytest.fixture(scope="function")
@@ -209,7 +404,8 @@ def consume_documents_from_kafka_until_first_stop_document(
 
     Returns
     -------
-    _consume_documents_from_kafka: function(topic, bootstrap_servers=None, **bluesky_consumer_kwargs) -> List[(name, document)]
+    _consume_documents_from_kafka:
+            function(topic, bootstrap_servers=None, **bluesky_consumer_kwargs) -> List[(name, document)]
         calling this function will consume Kafka messages and place the (name, document)
         tuples into a list; when the first stop document is encountered the consumer
         polling loop will terminate and the document list will be returned
