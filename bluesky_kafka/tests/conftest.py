@@ -1,5 +1,6 @@
 import os
 import tempfile
+import uuid
 
 from contextlib import contextmanager
 
@@ -51,17 +52,7 @@ def kafka_bootstrap_servers(request):
 
 
 @pytest.fixture(scope="function")
-def broker_authorization_config():
-    return {
-        # "security.protocol": "SASL_PLAINTEXT",
-        # "sasl.mechanisms": "PLAIN",
-        # "sasl.username": "user",
-        # "sasl.password": "password",
-    }
-
-
-@pytest.fixture(scope="function")
-def temporary_topics(kafka_bootstrap_servers, broker_authorization_config):
+def temporary_topics(kafka_bootstrap_servers):
     """
     Use this "factory as a fixture and context manager" to cleanly
     create new topics and delete them after a test.
@@ -73,8 +64,6 @@ def temporary_topics(kafka_bootstrap_servers, broker_authorization_config):
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
-    broker_authorization_config: dict
-        Kafka broker authentication parameters for the test broker
     """
 
     @contextmanager
@@ -83,7 +72,7 @@ def temporary_topics(kafka_bootstrap_servers, broker_authorization_config):
             bootstrap_servers = kafka_bootstrap_servers
 
         if admin_client_config is None:
-            admin_client_config = broker_authorization_config
+            admin_client_config = {}
 
         try:
             # delete existing requested topics
@@ -112,7 +101,7 @@ def temporary_topics(kafka_bootstrap_servers, broker_authorization_config):
 
 
 @pytest.fixture(scope="function")
-def basic_producer_factory(kafka_bootstrap_servers, broker_authorization_config):
+def basic_producer_factory(kafka_bootstrap_servers):
     """
     Use this "factory as a fixture" to create one or more BasicProducers in a test function.
     If `bootstrap_servers` is not specified to the factory function then the `kafka_bootstrap_servers`
@@ -129,8 +118,6 @@ def basic_producer_factory(kafka_bootstrap_servers, broker_authorization_config)
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
-    broker_authorization_config: dict
-        Kafka broker authentication parameters for the test broker
 
     Returns
     -------
@@ -179,7 +166,6 @@ def basic_producer_factory(kafka_bootstrap_servers, broker_authorization_config)
                 "enable.idempotence": False,
                 "request.timeout.ms": 1000,
             }
-            producer_config.update(broker_authorization_config)
 
         return BasicProducer(
             topic=topic,
@@ -193,7 +179,7 @@ def basic_producer_factory(kafka_bootstrap_servers, broker_authorization_config)
 
 
 @pytest.fixture(scope="function")
-def consume_kafka_messages(kafka_bootstrap_servers, broker_authorization_config):
+def consume_kafka_messages(kafka_bootstrap_servers):
     """Use this fixture to consume the specified count of Kafka messages.
 
     This fixture will construct a BasicConsumer and run its polling loop. When the specified
@@ -203,8 +189,6 @@ def consume_kafka_messages(kafka_bootstrap_servers, broker_authorization_config)
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
-    broker_authorization_config: dict
-        Kafka broker authentication parameters for the test broker
 
     Returns
     -------
@@ -216,7 +200,7 @@ def consume_kafka_messages(kafka_bootstrap_servers, broker_authorization_config)
 
     def _consume_kafka_messages(
         expected_message_count,
-        kafka_topic,
+        kafka_topics,
         bootstrap_servers=None,
         consumer_config=None,
         **basic_consumer_kwargs,
@@ -226,8 +210,8 @@ def consume_kafka_messages(kafka_bootstrap_servers, broker_authorization_config)
         ----------
         expected_message_count: int
             the number of messages to consume, must be greater than 0
-        kafka_topic: str
-            Kafka messages with this topic will be consumed
+        kafka_topics: list of str
+            Kafka messages with these topics will be consumed
         bootstrap_servers: str, optional
             List of Kafka server addresses as strings such as ``["127.0.0.1:9092"]``;
             default is the value of the pytest command line parameter --kafka-bootstrap-servers
@@ -258,12 +242,15 @@ def consume_kafka_messages(kafka_bootstrap_servers, broker_authorization_config)
                 # to specify "earliest" here
                 "auto.offset.reset": "earliest",
             }
-            consumer_config.update(broker_authorization_config)
 
         consumed_messages = []
 
-        def store_consumed_message(consumer, topic, message):
-            """This function appends to a list all messages received by the consumer.
+        def store_messages_until_expected_count_reached(consumer, topic, message):
+            """Appends each message received to a list.
+
+            This function returns False to end the BasicConsumer polling loop after seeing
+            the expected number of messages. Without something like this the polling loop
+            will never end.
 
             Parameters
             ----------
@@ -273,31 +260,31 @@ def consume_kafka_messages(kafka_bootstrap_servers, broker_authorization_config)
                 unused
             message: object
                 deserialized "value" of the Kafka message
+
+            Return
+            ------
+            expecting_more_messages: bool
+                True while the number of consumed messages is less than the expected
+                message count, False otherwise.
             """
             consumed_messages.append(message)
+            expecting_more_messages = len(consumed_messages) < expected_message_count
+            return expecting_more_messages
 
         basic_consumer = BasicConsumer(
-            topics=[kafka_topic],
+            topics=kafka_topics,
             bootstrap_servers=bootstrap_servers,
-            group_id=f"{kafka_topic}.basic.consumer.group",
+            # construct a consumer group id specific to this test
+            group_id=str(uuid.uuid4()),
             consumer_config=consumer_config,
-            process_message=store_consumed_message,
+            process_message=store_messages_until_expected_count_reached,
             **basic_consumer_kwargs,
         )
 
-        def until_message_count_reached():
-            """
-            This function returns False to end the BasicConsumer polling loop after seeing
-            the expected number of messages. Without something like this the polling loop
-            will never end.
-            """
-            return len(consumed_messages) < expected_message_count
-
         try:
-            # start() will return when 'until_message_count_reached' returns False
-            basic_consumer.start_polling(
-                continue_polling=until_message_count_reached,
-            )
+            # start_polling() will return when function
+            # 'store_messages_until_expected_count_reached' returns False
+            basic_consumer.start_polling()
         finally:
             return consumed_messages, basic_consumer
 
@@ -305,7 +292,7 @@ def consume_kafka_messages(kafka_bootstrap_servers, broker_authorization_config)
 
 
 @pytest.fixture(scope="function")
-def publisher_factory(kafka_bootstrap_servers, broker_authorization_config):
+def publisher_factory(kafka_bootstrap_servers):
     """
     Use this "factory as a fixture" to create one or more Publishers in a test function.
     If `bootstrap_servers` is not specified to the factory function then the `kafka_bootstrap_servers`
@@ -322,8 +309,6 @@ def publisher_factory(kafka_bootstrap_servers, broker_authorization_config):
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
-    broker_authorization_config: dict
-        Kafka broker authentication parameters for the test broker
 
     Returns
     -------
@@ -372,7 +357,6 @@ def publisher_factory(kafka_bootstrap_servers, broker_authorization_config):
                 "enable.idempotence": False,
                 "request.timeout.ms": 1000,
             }
-            producer_config.update(broker_authorization_config)
 
         return Publisher(
             topic=topic,
@@ -386,9 +370,7 @@ def publisher_factory(kafka_bootstrap_servers, broker_authorization_config):
 
 
 @pytest.fixture(scope="function")
-def consume_documents_from_kafka_until_first_stop_document(
-    kafka_bootstrap_servers, broker_authorization_config
-):
+def consume_documents_from_kafka_until_first_stop_document(kafka_bootstrap_servers):
     """Use this fixture to consume Kafka messages containing bluesky (name, document) tuples.
 
     This fixture will construct a BlueskyConsumer and run its polling loop. When the first
@@ -399,8 +381,6 @@ def consume_documents_from_kafka_until_first_stop_document(
     ----------
     kafka_bootstrap_servers : pytest fixture
         comma-delimited str of Kafka bootstrap server host:port specified on the pytest command line
-    broker_authorization_config: dict
-        Kafka broker authentication parameters for the test broker
 
     Returns
     -------
@@ -445,7 +425,6 @@ def consume_documents_from_kafka_until_first_stop_document(
                 # to specify "earliest" here
                 "auto.offset.reset": "earliest",
             }
-            consumer_config.update(broker_authorization_config)
 
         consumed_bluesky_documents = []
 

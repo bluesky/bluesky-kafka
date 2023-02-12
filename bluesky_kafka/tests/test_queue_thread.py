@@ -24,7 +24,6 @@ from bluesky_kafka.tools.queue_thread import (
 
 def test_build_kafka_publisher_queue_and_thread(
     kafka_bootstrap_servers,
-    broker_authorization_config,
     temporary_topics,
     consume_documents_from_kafka_until_first_stop_document,
     RE,
@@ -42,8 +41,6 @@ def test_build_kafka_publisher_queue_and_thread(
     ----------
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of Kafka broker host:port, for example "kafka1:9092,kafka2:9092"
-    broker_authorization_config: dict
-        Kafka broker authentication parameters for the test broker
     temporary_topics: context manager (pytest fixture)
         creates and cleans up temporary Kafka topics for testing
     consume_documents_from_kafka_until_first_stop_document: pytest fixture
@@ -63,7 +60,7 @@ def test_build_kafka_publisher_queue_and_thread(
         publisher_queue_thread_details = build_kafka_publisher_queue_and_thread(
             topic=beamline_topic,
             bootstrap_servers=kafka_bootstrap_servers,
-            producer_config=broker_authorization_config,
+            producer_config={},
         )
 
         assert isinstance(publisher_queue_thread_details.publisher_queue, queue.Queue)
@@ -124,7 +121,7 @@ def test_build_kafka_publisher_queue_and_thread(
         )
 
 
-def test_no_topic(caplog, kafka_bootstrap_servers, broker_authorization_config, RE):
+def test_no_topic(caplog, kafka_bootstrap_servers, RE):
     """Test the case of a topic that does not exist in the Kafka broker.
 
     If the topic does not exist a BlueskyKafkaException
@@ -136,8 +133,6 @@ def test_no_topic(caplog, kafka_bootstrap_servers, broker_authorization_config, 
         logging output will be captured by this fixture
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of Kafka broker host:port, for example "kafka1:9092,kafka2:9092"
-    broker_authorization_config: dict
-        Kafka broker authentication parameters for the test broker
     RE: RunEngine (pytest fixture)
         bluesky RunEngine
     """
@@ -150,7 +145,7 @@ def test_no_topic(caplog, kafka_bootstrap_servers, broker_authorization_config, 
         build_kafka_publisher_queue_and_thread(
             topic=topic,
             bootstrap_servers=kafka_bootstrap_servers,
-            producer_config=broker_authorization_config,
+            producer_config={},
         )
 
     assert f"topic `{topic}` does not exist on Kafka broker(s)" in caplog.text
