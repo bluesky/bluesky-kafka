@@ -34,16 +34,17 @@ from event_model import sanitize_doc
     "serializer, deserializer",
     [(pickle.dumps, pickle.loads), (msgpack.packb, msgpack.unpackb)],
 )
-def test_publisher_and_consumer(
+def test_basic_producer_and_basic_consumer(
     temporary_topics,
     basic_producer_factory,
     consume_kafka_messages,
     serializer,
     deserializer,
 ):
-    """Test publishing and consuming bluesky documents in Kafka messages.
+    """Test producing and consuming Kafka messages.
 
-    Messages will be "consumed" by a `bluesky_kafka.consume.BasicConsumer`.
+    Messages will be produced by two `bluesky_kafka.produce.BasicProducers`.
+    Messages will be consumed by a `bluesky_kafka.consume.BasicConsumer`.
 
     Parameters
     ----------
@@ -51,15 +52,18 @@ def test_publisher_and_consumer(
         creates and cleans up temporary Kafka topics for testing
     publisher_factory: pytest fixture
         fixture-as-a-factory for creating Publishers
-    serializer: function (pytest test parameter)
-        function used to serialize bluesky documents in Kafka messages
-    deserializer: function (pytest test parameter)
-        function used to deserialize bluesky documents from Kafka messages
+    serializer: function (pytest parameter)
+        function used to serialize Kafka messages
+    deserializer: function (pytest parameter)
+        function used to deserialize Kafka messages
     """
 
     with temporary_topics(
-        topics=[f"test.basic.publisher.and.basic.consumer.{serializer.__module__}"]
-    ) as (topic,):
+        topics=[
+            f"a.test.basic.publisher.and.basic.consumer.{serializer.__module__}",
+            f"b.test.basic.publisher.and.basic.consumer.{serializer.__module__}",
+        ]
+    ) as topics:
         failed_deliveries = []
         successful_deliveries = []
 
@@ -69,9 +73,16 @@ def test_publisher_and_consumer(
             else:
                 failed_deliveries.append((err, msg))
 
-        basic_producer = basic_producer_factory(
-            topic=topic,
-            key=f"{topic}.key",
+        basic_producer_0 = basic_producer_factory(
+            topic=topics[0],
+            key=f"{topics[0]}.producer.key",
+            on_delivery=on_delivery,
+            serializer=serializer,
+        )
+
+        basic_producer_1 = basic_producer_factory(
+            topic=topics[1],
+            key=f"{topics[1]}.producer.key",
             on_delivery=on_delivery,
             serializer=serializer,
         )
@@ -87,29 +98,32 @@ def test_publisher_and_consumer(
         ]
 
         produced_messages = []
-        for message in messages:
-            basic_producer.produce(message)
-            produced_messages.append(message)
-        basic_producer.flush()
+        for basic_producer in (basic_producer_0, basic_producer_1):
+            for message in messages:
+                basic_producer.produce(message)
+                produced_messages.append(message)
+            basic_producer.flush()
 
-        # expect 4 successful deliveries and 0 failed deliveries
-        assert len(successful_deliveries) == 4
+        # expect 8 successful deliveries and 0 failed deliveries
+        assert len(successful_deliveries) == 8
         assert len(failed_deliveries) == 0
 
         # consume the messages
         consumed_messages, consumer = consume_kafka_messages(
             expected_message_count=len(messages),
-            kafka_topic=topic,
+            kafka_topics=topics,
             deserializer=deserializer,
         )
 
         assert len(messages) == len(consumed_messages)
         assert consumer.closed
 
-        # sanitize_doc normalizes some document data, such as numpy arrays, that are
-        # problematic for direct comparison of documents by 'assert'
-        sanitized_messages = [sanitize_doc(doc) for doc in messages]
-        sanitized_consumed_messages = [sanitize_doc(doc) for doc in consumed_messages]
+        # sanitize_doc normalizes some data, such as numpy arrays, that are
+        # problematic for direct comparison of messages
+        sanitized_messages = [sanitize_doc(message) for message in messages]
+        sanitized_consumed_messages = [
+            sanitize_doc(message) for message in consumed_messages
+        ]
 
         assert len(sanitized_consumed_messages) == len(sanitized_messages)
         assert sanitized_consumed_messages == sanitized_messages

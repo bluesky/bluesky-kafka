@@ -9,22 +9,6 @@ from bluesky_kafka.produce import BasicProducer
         ([], {}, ""),
         (["1.2.3.4:9092"], {}, "1.2.3.4:9092"),
         (["1.2.3.4:9092", "localhost:9092"], {}, "1.2.3.4:9092,localhost:9092"),
-        ([], {"bootstrap.servers": "10.11.12.13:9092"}, "10.11.12.13:9092"),
-        (
-            [],
-            {"bootstrap.servers": "10.11.12.13:9092,10.11.12.14:9092"},
-            "10.11.12.13:9092,10.11.12.14:9092",
-        ),
-        (
-            ["1.2.3.4:9092"],
-            {"bootstrap.servers": "10.11.12.13:9092"},
-            "1.2.3.4:9092,10.11.12.13:9092",
-        ),
-        (
-            ["1.2.3.4:9092", "localhost:9092"],
-            {"bootstrap.servers": "10.11.12.13:9092,10.11.12.14:9092"},
-            "1.2.3.4:9092,localhost:9092,10.11.12.13:9092,10.11.12.14:9092",
-        ),
     ],
 )
 def test_bootstrap_servers(
@@ -46,6 +30,25 @@ def test_bootstrap_servers(
         basic_producer._producer_config["bootstrap.servers"]
         == combined_bootstrap_servers
     )
+
+
+def test_bootstrap_servers_in_producer_config():
+    """
+    This test verifies that ValueError is raised when the `producer_config`
+    dictionary includes the `bootstrap.servers` key.
+    """
+    with pytest.raises(ValueError) as excinfo:
+        BasicProducer(
+            topic="abc",
+            bootstrap_servers=["localhost:9092"],
+            key=None,
+            producer_config={"bootstrap.servers": ""},
+        )
+
+        assert (
+            "do not specify 'bootstrap.servers' in producer_config dictionary, use only the 'bootstrap_servers' parameter"
+            in excinfo.value
+        )
 
 
 def test_bad_bootstrap_servers():

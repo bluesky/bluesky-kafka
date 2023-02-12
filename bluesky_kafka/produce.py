@@ -37,33 +37,14 @@ class BasicProducer:
     Produce Kafka messages.
 
     This class is intended for two purposes:
-      1) give bluesky users a simple way to produce general messages
-      2) provide a parent class for Publisher and future DocumentProducer
+        1) give bluesky users a simple way to produce general messages
+        2) provide a parent class for Publisher and future DocumentProducer
 
-    Reference: https://github.com/confluentinc/confluent-kafka-python/issues/137
+    For guidance on flushing a BasicProducer see this:
+        https://github.com/confluentinc/confluent-kafka-python/issues/137
 
-    There is no default configuration. A reasonable production configuration for use
-    with bluesky is Kafka's "idempotent" configuration specified by
-        producer_config = {
-            "enable.idempotence": True
-        }
-    This is short for
-        producer_config = {
-            "acks": "all",                              # acknowledge only after all brokers receive a message
-            "retries": sys.maxsize,                     # retry indefinitely
-            "max.in.flight.requests.per.connection": 5  # maintain message order *when retrying*
-        }
-
-    This means three things:
-        1) delivery acknowledgement is not sent until all replicate brokers have received a message
-        2) message delivery will be retried indefinitely (messages will not be dropped by the Producer)
-        3) message order will be maintained during retries
-
-    A reasonable testing configuration is
-        producer_config={
-            "acks": 1,
-            "request.timeout.ms": 5000,
-        }
+    There is no default configuration. Consult Kafka documentation to determine
+    appropriate producer configuration for specific situations.
 
     Parameters
     ----------
@@ -72,10 +53,11 @@ class BasicProducer:
     bootstrap_servers: str
         Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``.
     key : str
-        Kafka "key" string. Specify a key to maintain message order. If None is specified
+        Kafka "key" string. Specify any string to maintain message order. If None is specified
         no ordering will be imposed on messages.
     producer_config : dict, optional
-        Dictionary configuration information used to construct the underlying Kafka Producer.
+        Dictionary of configuration information used to construct the underlying 
+        confluent_kafka.Producer.
     on_delivery : function(err, msg), optional
         A function to be called after a message has been delivered or after delivery has
         permanently failed.
@@ -107,8 +89,7 @@ class BasicProducer:
         self.topic = topic
         self._bootstrap_servers = bootstrap_servers
         self._key = key
-        # in the case that "bootstrap.servers" is included in producer_config
-        # combine it with the bootstrap_servers argument
+
         self._producer_config = dict()
         if producer_config is not None:
             self._producer_config.update(producer_config)
@@ -118,14 +99,12 @@ class BasicProducer:
                 "parameter `bootstrap_servers` must be a sequence of str, not str"
             )
         elif "bootstrap.servers" in self._producer_config:
-            bootstrap_servers.extend(
-                self._producer_config["bootstrap.servers"].split(",")
+            raise ValueError(
+                "do not specify 'bootstrap.servers' in producer_config dictionary, use only the 'bootstrap_servers' parameter"
+                f"\n{self._producer_config}"
             )
         else:
-            # bootstrap_servers looks good
-            pass
-
-        self._producer_config["bootstrap.servers"] = ",".join(bootstrap_servers)
+            self._producer_config["bootstrap.servers"] = ",".join(bootstrap_servers)
 
         logger.debug("producer configuration: %s", self._producer_config)
 
@@ -152,7 +131,8 @@ class BasicProducer:
 
     def get_cluster_metadata(self, timeout=5.0):
         """
-        Return information about the Kafka cluster and this Producer's topic.
+        A convience method to return information about the Kafka cluster
+        and this Producer's topic.
 
         Parameters
         ----------
