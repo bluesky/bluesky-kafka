@@ -18,7 +18,7 @@ del get_versions
 # package to handle numpy arrays with msgpack_numpy
 mpn.patch()
 
-logger = logging.getLogger(name="bluesky.kafka")
+logger = logging.getLogger(name="bluesky_kafka")
 
 
 class BlueskyKafkaException(Exception):

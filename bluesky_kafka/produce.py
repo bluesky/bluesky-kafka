@@ -8,7 +8,7 @@ import msgpack_numpy as mpn
 # package to handle numpy arrays with msgpack_numpy
 mpn.patch()
 
-logger = logging.getLogger(name="bluesky.kafka")
+logger = logging.getLogger(name="bluesky_kafka")
 
 
 def default_delivery_report(err, msg):

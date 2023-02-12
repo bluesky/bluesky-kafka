@@ -8,7 +8,7 @@ from confluent_kafka.admin import AdminClient, NewTopic
 from bluesky_kafka import BlueskyKafkaException
 
 
-log = logging.getLogger("bluesky.kafka")
+log = logging.getLogger("bluesky_kafka")
 
 
 def get_cluster_metadata(bootstrap_servers, timeout=10, producer_config=None):
