@@ -49,27 +49,28 @@ class BasicConsumer:
     Example
     -------
 
-    Print the first ten messages received.
+    Print the first ten messages received from a broker at localhost:9092.
 
-    message_count = 0
-    def print_ten_messages(consumer, message):
-        print(message)
-        message_count += 1
-        return message_count < 9
+    consumed_messages = []
+    def print_ten_messages(consumer, topic, message):
+        print(f"consumed message: {message} from topic {topic}")
+        consumed_messages.append(message)
+        return len(consumed_messages) < 10
 
-    consumer = Consumer(
-        topics=["abc", "xyz"],
+    consumer = BasicConsumer(
+        topics=topics,
         bootstrap_servers=["localhost:9092"],
-        group_id="print.document.consumer.group",
-            consumer_config={
-                # consume messages published after this consumer starts
-                "auto.offset.reset": "latest"
-            }
-            process_message=print_ten_messages
-        )
+        group_id=str(uuid.uuid4()),
+        consumer_config={
+            # consume messages published before this consumer starts
+            "auto.offset.reset": "earliest"
+        },
+        process_message=print_ten_messages
+    )
 
     # runs until print_ten_messages returns False
     consumer.start_polling()
+
     """
 
     def __init__(

@@ -22,6 +22,7 @@
       $ sudo docker system prune -a
 """
 import pickle
+import uuid
 
 import msgpack
 import numpy as np
@@ -127,3 +128,74 @@ def test_basic_producer_and_basic_consumer(
 
         assert len(sanitized_consumed_messages) == len(sanitized_messages)
         assert sanitized_consumed_messages == sanitized_messages
+
+
+def test_basic_consumer_docstring_example(
+    kafka_bootstrap_servers,
+    temporary_topics,
+    basic_producer_factory,
+):
+    """Test the example in the BasicConsumer docstring.
+
+    Parameters
+    ----------
+    kafka_bootstrap_servers: str (pytest fixture)
+        comma-separated string of broker hostnames
+    temporary_topics: context manager (pytest fixture)
+        creates and cleans up temporary Kafka topics for testing
+    publisher_factory: pytest fixture
+        fixture-as-a-factory for creating Publishers
+    """
+
+    from bluesky_kafka.consume import BasicConsumer
+
+    with temporary_topics(topics=["test.basic.consumer.docstring.example"]) as topics:
+        failed_deliveries = []
+        successful_deliveries = []
+
+        def on_delivery(err, msg):
+            if err is None:
+                successful_deliveries.append(msg)
+            else:
+                failed_deliveries.append((err, msg))
+
+        basic_producer = basic_producer_factory(
+            topic=topics[0],
+            key=str(uuid.uuid4()),
+            on_delivery=on_delivery,
+        )
+
+        ten_messages = list(range(10))
+        produced_messages = []
+        for message in ten_messages:
+            basic_producer.produce(message)
+            produced_messages.append(message)
+        basic_producer.flush()
+
+        consumed_messages = []
+
+        def print_ten_messages(consumer, topic, message):
+            print(f"consumed message: {message} from topic {topic}")
+            consumed_messages.append(message)
+            return len(consumed_messages) < 10
+
+        consumer = BasicConsumer(
+            topics=topics,
+            bootstrap_servers=kafka_bootstrap_servers.split(","),
+            group_id=str(uuid.uuid4()),
+            consumer_config={
+                # consume messages published before this consumer starts
+                "auto.offset.reset": "earliest"
+            },
+            process_message=print_ten_messages,
+        )
+
+        # runs until print_ten_messages returns False
+        consumer.start_polling()
+
+        # expect 10 successful deliveries and 0 failed deliveries
+        assert len(successful_deliveries) == 10
+        assert len(failed_deliveries) == 0
+
+        assert consumed_messages == produced_messages
+        assert consumed_messages == ten_messages
