@@ -108,8 +108,8 @@ class BasicConsumer:
             )
         elif "bootstrap.servers" in self._consumer_config:
             raise ValueError(
-                "do not specify 'bootstrap.servers' in consumer_config dictionary, use only the 'bootstrap_servers' parameter"
-                f"\n{self._consumer_config}"
+                "do not specify 'bootstrap.servers' in consumer_config dictionary, "
+                "use only the 'bootstrap_servers' parameter"
             )
         else:
             self._consumer_config["bootstrap.servers"] = ",".join(bootstrap_servers)

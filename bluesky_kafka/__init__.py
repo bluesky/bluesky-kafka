@@ -66,7 +66,7 @@ class Publisher(BasicProducer):
         Kafka "key" string. Specify a key to maintain message order. If None is specified
         no ordering will be imposed on messages.
     producer_config : dict, optional
-        Dictionary of configuration information used to construct the underlying 
+        Dictionary of configuration information used to construct the underlying
         confluent_kafka.Producer.
     on_delivery : function(err, msg), optional
         A function to be called after a message has been delivered or after delivery has

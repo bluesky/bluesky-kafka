@@ -46,8 +46,8 @@ def test_bootstrap_servers_in_producer_config():
         )
 
         assert (
-            "do not specify 'bootstrap.servers' in producer_config dictionary, use only the 'bootstrap_servers' parameter"
-            in excinfo.value
+            "do not specify 'bootstrap.servers' in producer_config dictionary, "
+            "use only the 'bootstrap_servers' parameter" in excinfo.value
         )
 
 

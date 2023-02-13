@@ -43,8 +43,8 @@ def test_bootstrap_servers_in_consumer_config():
         )
 
         assert (
-            "do not specify 'bootstrap.servers' in consumer_config dictionary, use only the 'bootstrap_servers' parameter"
-            in excinfo.value
+            "do not specify 'bootstrap.servers' in consumer_config dictionary, "
+            "use only the 'bootstrap_servers' parameter" in excinfo.value
         )
 
 
