@@ -51,6 +51,9 @@ class BasicConsumer:
 
     Print the first ten messages received from a broker at localhost:9092.
 
+    import uuid
+    from bluesky_kafka.consume import BasicConsumer
+
     consumed_messages = []
     def print_ten_messages(consumer, topic, message):
         print(f"consumed message: {message} from topic {topic}")
@@ -58,7 +61,7 @@ class BasicConsumer:
         return len(consumed_messages) < 10
 
     consumer = BasicConsumer(
-        topics=topics,
+        topics=["some.topic"],
         bootstrap_servers=["localhost:9092"],
         group_id=str(uuid.uuid4()),
         consumer_config={

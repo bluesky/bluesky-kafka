@@ -130,12 +130,11 @@ def test_basic_producer_and_basic_consumer(
         assert sanitized_consumed_messages == sanitized_messages
 
 
-def test_basic_consumer_docstring_example(
+def test_basic_consumer_and_basic_producer_docstring_examples(
     kafka_bootstrap_servers,
     temporary_topics,
-    basic_producer_factory,
 ):
-    """Test the example in the BasicConsumer docstring.
+    """Test the examples in BasicConsumer and BasicProducer docstrings.
 
     Parameters
     ----------
@@ -143,13 +142,12 @@ def test_basic_consumer_docstring_example(
         comma-separated string of broker hostnames
     temporary_topics: context manager (pytest fixture)
         creates and cleans up temporary Kafka topics for testing
-    publisher_factory: pytest fixture
-        fixture-as-a-factory for creating Publishers
     """
 
     from bluesky_kafka.consume import BasicConsumer
+    from bluesky_kafka.produce import BasicProducer
 
-    with temporary_topics(topics=["test.basic.consumer.docstring.example"]) as topics:
+    with temporary_topics(topics=["test.basic.docstring.examples"]) as topics:
         failed_deliveries = []
         successful_deliveries = []
 
@@ -159,8 +157,9 @@ def test_basic_consumer_docstring_example(
             else:
                 failed_deliveries.append((err, msg))
 
-        basic_producer = basic_producer_factory(
+        basic_producer = BasicProducer(
             topic=topics[0],
+            bootstrap_servers=kafka_bootstrap_servers.split(","),
             key=str(uuid.uuid4()),
             on_delivery=on_delivery,
         )
