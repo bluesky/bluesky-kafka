@@ -9,15 +9,15 @@ from bluesky_kafka import MongoConsumer
 
 bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
 if bootstrap_servers is None:
-    raise AttributeError("Environment variable KAFKA_BOOTSTRAP_SERVERS" "must be set.")
+    raise AttributeError("Environment variable KAFKA_BOOTSTRAP_SERVERS must be set.")
 
 mongo_uri = os.environ.get("BLUESKY_MONGO_URI")
 if mongo_uri is None:
-    raise AttributeError("Environment variable BLUESKY_MONGO_URI " "must be set.")
+    raise AttributeError("Environment variable BLUESKY_MONGO_URI must be set.")
 
 beamline_password = os.environ.get("KAFKA_BEAMLINE_PASSWORD")
 if beamline_password is None:
-    raise AttributeError("Environment variable KAFKA_BEAMLINE_PASSWORD" "must be set.")
+    raise AttributeError("Environment variable KAFKA_BEAMLINE_PASSWORD must be set.")
 
 kafka_deserializer = partial(msgpack.loads, object_hook=mpn.decode)
 auto_offset_reset = "latest"
