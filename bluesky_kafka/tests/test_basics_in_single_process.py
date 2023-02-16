@@ -111,23 +111,25 @@ def test_basic_producer_and_basic_consumer(
 
         # consume the messages
         consumed_messages, consumer = consume_kafka_messages(
-            expected_message_count=len(messages),
+            expected_message_count=len(successful_deliveries),
             kafka_topics=topics,
             deserializer=deserializer,
         )
 
-        assert len(messages) == len(consumed_messages)
+        assert len(consumed_messages) == len(successful_deliveries)
         assert consumer.closed
 
         # sanitize_doc normalizes some data, such as numpy arrays, that are
         # problematic for direct comparison of messages
-        sanitized_messages = [sanitize_doc(message) for message in messages]
+        sanitized_produced_messages = [
+            sanitize_doc(message) for message in produced_messages
+        ]
         sanitized_consumed_messages = [
             sanitize_doc(message) for message in consumed_messages
         ]
 
-        assert len(sanitized_consumed_messages) == len(sanitized_messages)
-        assert sanitized_consumed_messages == sanitized_messages
+        assert len(sanitized_consumed_messages) == len(sanitized_produced_messages)
+        assert sanitized_consumed_messages == sanitized_produced_messages
 
 
 def test_basic_consumer_and_basic_producer_docstring_examples(
