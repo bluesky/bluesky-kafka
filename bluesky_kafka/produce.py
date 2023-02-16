@@ -50,8 +50,9 @@ class BasicProducer:
     ----------
     topic : str
         Topic to which all messages will be published.
-    bootstrap_servers: str
-        Comma-delimited list of Kafka server addresses as a string such as ``'127.0.0.1:9092'``.
+    bootstrap_servers : list of str
+        List of Kafka server addresses as strings
+        such as ``["broker1:9092", "broker2:9092", "127.0.0.1:9092"]``
     key : str
         Kafka "key" string. Specify any string to maintain message order. If None is specified
         no ordering will be imposed on messages.
@@ -135,16 +136,16 @@ class BasicProducer:
             safe_config["sasl.password"] = "****"
         return (
             f"{type(self)}("
-            f"topic='{self.topic}',"
-            f"key='{self._key}',"
-            f"bootstrap_servers='{self._bootstrap_servers}'"
+            f"topic='{self.topic}', "
+            f"key='{self._key}', "
+            f"bootstrap_servers='{self._bootstrap_servers}', "
             f"producer_config='{safe_config}'"
             ")"
         )
 
     def get_cluster_metadata(self, timeout=5.0):
         """
-        A convience method to return information about the Kafka cluster
+        A convenience method to return information about the Kafka cluster
         and this Producer's topic.
 
         Parameters
