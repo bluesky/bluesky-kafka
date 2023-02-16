@@ -29,7 +29,7 @@ def test_redact_password_from_str_output():
     bluesky_consumer = BlueskyConsumer(
         topics=["test.redact.password"],
         bootstrap_servers="1.2.3.4:9092",
-        group_id="test-redact-password",
+        group_id="test-redact-password-group",
         consumer_config={
             "sasl.password": "PASSWORD",
         },

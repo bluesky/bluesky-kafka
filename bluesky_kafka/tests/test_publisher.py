@@ -26,7 +26,7 @@ def test_redact_password_from_str_output():
     publisher = Publisher(
         topic=topic,
         bootstrap_servers="1.2.3.4:9092",
-        key="test.redact.password",
+        key="test-redact-password-key",
         producer_config={
             "sasl.password": "PASSWORD",
         },
