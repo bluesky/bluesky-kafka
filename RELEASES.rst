@@ -2,6 +2,12 @@
 Release History
 ===============
 
+v0.10.0 (2023-02-17)
+....................
+* add ``bluesky_kafka.consume.BasicConsumer`` and make parent of ``bluesky_kafka.BlueskyConsumer``
+* add ``bluesky_kafka.produce.BasicProducer`` and make parent of ``bluesky_kafka.Publisher``
+* sanitize ``str(BlueskyConsumer)`` output
+
 v0.9.1 (2022-07-28)
 ...................
 * sanitize ``str(Publisher)`` output
