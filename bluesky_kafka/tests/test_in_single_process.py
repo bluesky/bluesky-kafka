@@ -31,7 +31,7 @@ from bluesky import RunEngine
 from bluesky.plans import count
 from event_model import sanitize_doc
 
-from bluesky_kafka import Publisher, BlueskyConsumer, RemoteDispatcher
+from bluesky_kafka import RemoteDispatcher
 
 
 @pytest.mark.parametrize(
@@ -70,7 +70,6 @@ def test_publisher_and_consumer(
     with temporary_topics(
         topics=[f"test.publisher.and.consumer.{serializer.__module__}"]
     ) as (topic,):
-
         failed_deliveries = []
         successful_deliveries = []
 
@@ -101,7 +100,7 @@ def test_publisher_and_consumer(
 
         # include some metadata in the count plan
         # to test numpy serialization
-        md = {
+        RE.md = {
             "numpy_data": {"nested": np.array([1, 2, 3])},
             "numpy_scalar": np.float64(3),
             "numpy_array": np.ones((3, 3)),
@@ -150,7 +149,6 @@ def test_publisher_and_consumer(
 )
 def test_publisher_and_remote_dispatcher(
     kafka_bootstrap_servers,
-    broker_authorization_config,
     temporary_topics,
     publisher_factory,
     hw,
@@ -165,8 +163,6 @@ def test_publisher_and_remote_dispatcher(
     ----------
     kafka_bootstrap_servers: str (pytest fixture)
         comma-delimited string of Kafka broker host:port, for example "localhost:9092"
-    broker_authorization_config: dict
-        Kafka broker authentication parameters for the test broker
     temporary_topics: context manager (pytest fixture)
         creates and cleans up temporary Kafka topics for testing
     publisher_factory: pytest fixture
@@ -182,7 +178,6 @@ def test_publisher_and_remote_dispatcher(
     with temporary_topics(
         topics=[f"test.publisher.and.remote.dispatcher.{serializer.__module__}"]
     ) as (topic,):
-
         bluesky_publisher = publisher_factory(
             topic=topic,
             key=f"{topic}.key",
@@ -203,7 +198,7 @@ def test_publisher_and_remote_dispatcher(
 
         # include some metadata in the count plan
         # to test numpy serialization
-        md = {
+        RE.md = {
             "numpy_data": {"nested": np.array([1, 2, 3])},
             "numpy_scalar": np.float64(3),
             "numpy_array": np.ones((3, 3)),
@@ -221,12 +216,11 @@ def test_publisher_and_remote_dispatcher(
             # to specify "earliest" here
             "auto.offset.reset": "earliest",
         }
-        consumer_config.update(broker_authorization_config)
 
         remote_dispatcher = RemoteDispatcher(
             topics=[topic],
             bootstrap_servers=kafka_bootstrap_servers,
-            group_id=f"{topic}.consumer.group",
+            group_id=f"{topic}.remote.dispatcher.group",
             consumer_config=consumer_config,
             polling_duration=1.0,
             deserializer=deserializer,

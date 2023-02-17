@@ -228,7 +228,7 @@ def build_kafka_publisher_queue_and_thread(
         )
     else:
         logger.error(
-            f"topic `%s` does not exist on Kafka broker(s) `%s`",
+            "topic `%s` does not exist on Kafka broker(s) `%s`",
             topic,
             bootstrap_servers,
         )

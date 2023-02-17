@@ -8,7 +8,7 @@ from confluent_kafka.admin import AdminClient, NewTopic
 from bluesky_kafka import BlueskyKafkaException
 
 
-log = logging.getLogger("bluesky.kafka")
+log = logging.getLogger("bluesky_kafka")
 
 
 def get_cluster_metadata(bootstrap_servers, timeout=10, producer_config=None):
@@ -78,7 +78,8 @@ def create_topics(
     admin_client_config.update({"bootstrap.servers": bootstrap_servers})
     admin_client = AdminClient(admin_client_config)
     log.debug(
-        "creating topics '%s' with num_partitions=%d replication_factor=%d max_checks=%d seconds_between_checks=%.1f "
+        "creating topics '%s' with "
+        "num_partitions=%d replication_factor=%d max_checks=%d seconds_between_checks=%.1f "
         "admin_client_config=%s",
         topics_to_create,
         num_partitions,
