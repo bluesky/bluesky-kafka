@@ -56,10 +56,10 @@ def test_bad_bootstrap_servers():
     with pytest.raises(TypeError) as excinfo:
         BasicProducer(
             topic=test_topic,
-            bootstrap_servers="1.2.3.4:9092",
+            bootstrap_servers="localhost:9091",
             key=None,
             producer_config={
-                "bootstrap.servers": "5.6.7.8:9092",
+                "bootstrap.servers": "localhost:9092",
             },
         )
         assert (
@@ -72,7 +72,7 @@ def test_redact_password_from_str_output():
     topic = "test.redact.password"
     basic_producer = BasicProducer(
         topic=topic,
-        bootstrap_servers=["1.2.3.4:9092"],
+        bootstrap_servers=["localhost:9091", "localhost:9092"],
         key="test-redact-password",
         producer_config={
             "sasl.password": "PASSWORD",
@@ -80,6 +80,12 @@ def test_redact_password_from_str_output():
     )
 
     basic_producer_str_output = str(basic_producer)
-    assert "PASSWORD" not in basic_producer_str_output
-    assert "sasl.password" in basic_producer_str_output
-    assert "****" in basic_producer_str_output
+
+    assert basic_producer_str_output == (
+        "<class 'bluesky_kafka.produce.BasicProducer'>("
+        "topic='test.redact.password', "
+        "key='test-redact-password', "
+        "bootstrap_servers=['localhost:9091', 'localhost:9092'], "
+        "producer_config={'sasl.password': '****', 'bootstrap.servers': 'localhost:9091,localhost:9092'}"
+        ")"
+    )

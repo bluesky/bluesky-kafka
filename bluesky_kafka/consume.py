@@ -134,8 +134,8 @@ class BasicConsumer:
             safe_config["sasl.password"] = "****"
         return (
             f"{type(self)}("
-            f"topics='{self._topics}',"
-            f"consumer_config='{safe_config}'"
+            f"topics={self._topics}, "
+            f"consumer_config={safe_config}"
             ")"
         )
 

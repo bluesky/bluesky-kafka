@@ -83,11 +83,19 @@ def test_bad_consumer_config():
 def test_redact_password_from_str():
     basic_consumer = BasicConsumer(
         topics=["abc"],
-        bootstrap_servers=["1.2.3.4:9092"],
+        bootstrap_servers=["localhost:9091", "localhost:9092"],
         group_id="abc",
         consumer_config={
             "sasl.password": "PASSWORD",
         },
     )
-    assert "PASSWORD" not in str(basic_consumer)
-    assert "****" in str(basic_consumer)
+
+    assert str(basic_consumer) == (
+        "<class 'bluesky_kafka.consume.BasicConsumer'>("
+        "topics=['abc'], "
+        "consumer_config={"
+            "'sasl.password': '****', "
+            "'group.id': 'abc', "
+            "'bootstrap.servers': 'localhost:9091,localhost:9092'}"
+        ")"
+    )

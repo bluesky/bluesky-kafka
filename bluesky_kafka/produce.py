@@ -138,8 +138,8 @@ class BasicProducer:
             f"{type(self)}("
             f"topic='{self.topic}', "
             f"key='{self._key}', "
-            f"bootstrap_servers='{self._bootstrap_servers}', "
-            f"producer_config='{safe_config}'"
+            f"bootstrap_servers={self._bootstrap_servers}, "
+            f"producer_config={safe_config}"
             ")"
         )
 
