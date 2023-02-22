@@ -226,7 +226,7 @@ def test_publisher_with_no_broker(RE, hw):
         build_kafka_publisher_queue_and_thread(
             topic=beamline_name,
             # specify a bootstrap server that does not exist
-            bootstrap_servers="100.100.100.100:9092",
+            bootstrap_servers="localhost:9999",
             producer_config={},
             publisher_queue_timeout=1,
         )
