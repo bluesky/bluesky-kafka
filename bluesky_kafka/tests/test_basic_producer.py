@@ -7,8 +7,8 @@ from bluesky_kafka.produce import BasicProducer
     "bootstrap_servers, producer_config, combined_bootstrap_servers",
     [
         ([], {}, ""),
-        (["1.2.3.4:9092"], {}, "1.2.3.4:9092"),
-        (["1.2.3.4:9092", "localhost:9092"], {}, "1.2.3.4:9092,localhost:9092"),
+        (["localhost:9092"], {}, "localhost:9092"),
+        (["localhost:9091", "localhost:9092"], {}, "localhost:9091,localhost:9092"),
     ],
 )
 def test_bootstrap_servers(
@@ -45,10 +45,10 @@ def test_bootstrap_servers_in_producer_config():
             producer_config={"bootstrap.servers": ""},
         )
 
-        assert (
-            "do not specify 'bootstrap.servers' in producer_config dictionary, "
-            "use only the 'bootstrap_servers' parameter" in excinfo.value
-        )
+    assert (
+        "do not specify 'bootstrap.servers' in producer_config dictionary, "
+        "use only the 'bootstrap_servers' parameter" in str(excinfo.value)
+    )
 
 
 def test_bad_bootstrap_servers():
@@ -62,10 +62,9 @@ def test_bad_bootstrap_servers():
                 "bootstrap.servers": "localhost:9092",
             },
         )
-        assert (
-            "parameter `bootstrap_servers` must be a sequence of str, not str"
-            in excinfo.value
-        )
+    assert "parameter `bootstrap_servers` must be a sequence of str, not str" in str(
+        excinfo.value
+    )
 
 
 def test_redact_password_from_str_output():
