@@ -115,7 +115,6 @@ class BasicProducer:
             raise ValueError(
                 "do not specify 'bootstrap.servers' in producer_config dictionary, "
                 "use only the 'bootstrap_servers' parameter"
-                f"\n{self}"
             )
         else:
             self._producer_config["bootstrap.servers"] = ",".join(bootstrap_servers)
