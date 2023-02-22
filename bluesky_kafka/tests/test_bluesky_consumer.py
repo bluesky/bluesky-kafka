@@ -54,7 +54,7 @@ def test_bad_consumer_config():
                 "group.id": "raise an exception!",
             },
         )
-        assert (
-            "do not specify 'group.id' in consumer_config, use only the 'group_id' argument"
-            in excinfo.value
-        )
+    assert (
+        "do not specify 'group.id' in consumer_config, use only the 'group_id' parameter"
+        in str(excinfo)
+    )

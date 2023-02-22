@@ -42,10 +42,10 @@ def test_bootstrap_servers_in_consumer_config():
             consumer_config={"bootstrap.servers": ""},
         )
 
-        assert (
-            "do not specify 'bootstrap.servers' in consumer_config dictionary, "
-            "use only the 'bootstrap_servers' parameter" in excinfo.value
-        )
+    assert (
+        "do not specify 'bootstrap.servers' in consumer_config dictionary, "
+        "use only the 'bootstrap_servers' parameter" in str(excinfo)
+    )
 
 
 def test_bootstrap_servers_not_list():
@@ -56,10 +56,10 @@ def test_bootstrap_servers_not_list():
             group_id="abc",
             consumer_config={},
         )
-        assert (
-            "parameter `bootstrap_servers` must be a sequence of str, not str"
-            in excinfo.value
-        )
+    assert (
+        "parameter `bootstrap_servers` must be a sequence of str, not str"
+        in str(excinfo)
+    )
 
 
 def test_bad_consumer_config():
@@ -74,10 +74,10 @@ def test_bad_consumer_config():
                 "group.id": "raise an exception!",
             },
         )
-        assert (
-            "do not specify 'group.id' in consumer_config, use only the 'group_id' argument"
-            in excinfo.value
-        )
+    assert (
+        "do not specify 'group.id' in consumer_config, use only the 'group_id' parameter"
+        in str(excinfo)
+    )
 
 
 def test_redact_password_from_str():
