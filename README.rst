@@ -84,3 +84,26 @@ Monitor the consumer processes:
 ::
 
   $ supervisorctl -c bluesky_kafka/supervisor/supervisorctl.conf
+
+
+
+Remote Best Effort Callback
+---------------------------
+
+To run `bluesky.callbacks.best_effort.BestEffortCallback` consuming from a
+Kafka topic use
+
+.. python ::
+
+   import matplotlib.pyplot as plt
+
+   from bluesky.callbacks.best_effort import BestEffortCallback
+   from bluesky_kafka import RemoteDispatcher
+
+   bec = BestEffortCallback
+
+   kafka_config = {...}
+
+   kafka_consumer = RemoteDispatcher(**kafka_config)
+   kafka_consumer.subscribe(bec)
+   kafka_consumer.start(work_during_wait=lambda: plt.pause(0.05))
