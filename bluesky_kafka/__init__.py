@@ -152,6 +152,8 @@ class Publisher(BasicProducer):
             if KErr.code() == KafkaError.MSG_SIZE_TOO_LARGE:
                 if name == "event_page":
                     page_len = len(doc['seq_num'])
+                    if page_len == 1:
+                        raise
                     new_event_list = rechunk_event_pages([doc], (page_len + 1)//2)
                     for event in new_event_list:
                         self.__call__(name, event)
