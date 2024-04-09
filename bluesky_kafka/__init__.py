@@ -9,6 +9,10 @@ from bluesky_kafka.produce import BasicProducer
 from bluesky.run_engine import Dispatcher, DocumentNames
 from suitcase import mongo_normalized
 
+from confluent_kafka import KafkaError, KafkaException
+
+from event_model import rechunk_event_pages
+
 from ._version import get_versions
 
 __version__ = get_versions()["version"]
@@ -141,7 +145,20 @@ class Publisher(BasicProducer):
             event-model document dictionary
 
         """
-        self.produce(message=(name, doc))
+        try:
+            self.produce(message=(name, doc))
+        except KafkaException as e:
+            KErr = e.args[0]
+            if KErr.code() == KafkaError.MSG_SIZE_TOO_LARGE:
+                if name == "event_page":
+                    page_len = len(doc['seq_num'])
+                    if page_len == 1:
+                        raise
+                    new_event_list = rechunk_event_pages([doc], (page_len + 1)//2)
+                    for event in new_event_list:
+                        self.__call__(name, event)
+            else:
+                raise e
         if self._flush_on_stop_doc and name == "stop":
             self.flush()
 
