@@ -91,9 +91,9 @@ Remote Best Effort Callback
 ---------------------------
 
 To run `bluesky.callbacks.best_effort.BestEffortCallback` consuming from a
-Kafka topic use
+Kafka topic use:
 
-.. python ::
+::
 
    import matplotlib.pyplot as plt
 
