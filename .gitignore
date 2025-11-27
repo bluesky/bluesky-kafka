@@ -21,6 +21,7 @@ parts/
 sdist/
 var/
 venv/
+.venv/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -67,6 +68,7 @@ target/
 #mac
 .DS_Store
 *~
+.vscode
 
 #vim
 *.swp

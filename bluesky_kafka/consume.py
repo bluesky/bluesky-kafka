@@ -1,5 +1,6 @@
 import logging
 
+from bluesky_kafka.logging_utils import redact_config
 import msgpack
 import msgpack_numpy as mpn
 
@@ -83,6 +84,7 @@ class BasicConsumer:
         group_id,
         consumer_config=None,
         polling_duration=0.05,
+        # `timestamp=3` returns datetime objects for msgpack datetime values
         deserializer=msgpack.loads,
         process_message=None,
     ):
@@ -120,7 +122,7 @@ class BasicConsumer:
 
         logger.debug(
             "BlueskyConsumer configuration:\n%s",
-            self._consumer_config,
+            redact_config(self._consumer_config),
         )
         logger.debug("subscribing to Kafka topic(s): %s", topics)
 
@@ -129,9 +131,7 @@ class BasicConsumer:
         self.closed = False
 
     def __str__(self):
-        safe_config = dict(self._consumer_config)
-        if "sasl.password" in safe_config:
-            safe_config["sasl.password"] = "****"
+        safe_config = redact_config(self._consumer_config)
         return (
             f"{type(self)}("
             f"topics={self._topics}, "

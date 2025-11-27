@@ -21,6 +21,7 @@
     Use this in difficult cases to remove *all traces* of docker containers:
       $ sudo docker system prune -a
 """
+from datetime import datetime, timezone
 import pickle
 
 import msgpack
@@ -266,3 +267,31 @@ def test_publisher_and_remote_dispatcher(
             sanitized_dispatched_bluesky_documents
             == sanitized_published_bluesky_documents
         )
+
+
+@pytest.mark.parametrize(
+    "name, serializer, deserializer",
+    [
+        ("pickle", pickle.dumps, pickle.loads),
+        (
+            "msgpack",
+            lambda obj: msgpack.dumps(obj, use_bin_type=True, datetime=True),
+            lambda b: msgpack.loads(b, raw=False, timestamp=3),
+        ),
+    ],
+)
+def test_datetime_serialization(name, serializer, deserializer):
+    """Test that datetime objects are serialized and deserialized correctly."""
+
+    dt = datetime.now(tz=timezone.utc)
+    data = {"dt": dt}
+
+    result = deserializer(serializer(data))
+
+    assert "dt" in result
+    assert isinstance(result["dt"], datetime)
+
+    assert result["dt"].timestamp() == pytest.approx(dt.timestamp(), abs=1e-6)
+
+    if name == "pickle":
+        assert result["dt"] == dt

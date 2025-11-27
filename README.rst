@@ -2,13 +2,12 @@
 bluesky-kafka
 ===============================
 
-Archived!
----------
+A fork of bluesky's Kafka integration (https://github.com/bluesky/bluesky-kafka/)
 
-For a local message bus, use Bluesky's 0MQ proxy.
-For broadcasting Bluesky data to remote consumers, use Tiled's Streaming Websockets feature.
+The original codebase has been archived so we maintaining our own version as we use it in a lot of
+services at the Australian Synchrotron.
 
-Kafka integration for bluesky.
+For now we are only publishing packages internally.
 
 * Free software: 3-clause BSD license
 

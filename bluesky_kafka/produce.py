@@ -1,5 +1,6 @@
 import logging
 
+from bluesky_kafka.logging_utils import redact_config
 import msgpack
 import msgpack_numpy as mpn
 
@@ -95,7 +96,7 @@ class BasicProducer:
         key,
         producer_config=None,
         on_delivery=None,
-        serializer=msgpack.dumps,
+        serializer=msgpack.dumps
     ):
         from confluent_kafka import Producer as ConfluentProducer
 
@@ -119,7 +120,7 @@ class BasicProducer:
         else:
             self._producer_config["bootstrap.servers"] = ",".join(bootstrap_servers)
 
-        logger.debug("producer configuration: %s", self._producer_config)
+        logger.debug("producer configuration: %s", redact_config(self._producer_config))
 
         if on_delivery is None:
             self.on_delivery = default_delivery_report
@@ -130,9 +131,7 @@ class BasicProducer:
         self._serializer = serializer
 
     def __str__(self):
-        safe_config = dict(self._producer_config)
-        if "sasl.password" in safe_config:
-            safe_config["sasl.password"] = "****"
+        safe_config = redact_config(self._producer_config)
         return (
             f"{type(self)}("
             f"topic='{self.topic}', "

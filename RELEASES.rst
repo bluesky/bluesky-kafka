@@ -2,6 +2,13 @@
 Release History
 ===============
 
+v0.11.0 (2025-11-19)
+....................
+* Clean up exception and error messages (jklynch)
+* Dynamically re-chunk event pages when they are too large (cjtitus)
+* Sensitive config is now redacted in the logs (noxharmonium)
+
+
 v0.10.0 (2023-02-17)
 ....................
 * add ``bluesky_kafka.consume.BasicConsumer`` and make it the parent of ``bluesky_kafka.BlueskyConsumer``
@@ -54,4 +61,3 @@ v0.3.0 (2020-09-03)
 * added supervisor configuration file for ``mongo_normalized_consumer.py``
 * rewrote ``RemoteDispatcher`` to use ``BlueskyConsumer``
 * changed default serialization method to ``MessagePack``
-
